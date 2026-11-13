@@ -58,6 +58,10 @@ svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-l
 .adv .inline{display:flex;gap:8px;align-items:center}
 .adv .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 .adv h3{margin:0 0 12px;font-size:15px}
+.top .adv .btn{background:#fff;border-color:var(--line);color:var(--txt)}
+.top .adv .btn:hover{background:#fbfaf9;border-color:#c9c1bb}
+.top .adv .btn.primary{background:var(--g);border-color:var(--g);color:#fff}
+.top .adv .btn.primary:hover{background:var(--g2)}
 
 /* ---------- distribución en paneles ---------- */
 main{flex:1;min-height:0;display:grid;position:relative}
@@ -308,7 +312,7 @@ footer#status svg{width:13px;height:13px}
    CONFIGURACIÓN INSTITUCIONAL (editable)
    ===================================================================== */
 const CONFIG = {
-  version: '1.0.0',
+  version: '1.0.1',
   titulo: 'Lector MBOX',
   organizacion: 'CoBach BC · Uso institucional',
   maxTextoIndexado: 60000,     // caracteres de cuerpo indexados por mensaje (búsqueda de texto completo)
