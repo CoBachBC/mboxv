@@ -212,6 +212,26 @@ footer#status{flex:0 0 auto;padding:4px 14px;font-size:12px;color:var(--mut);bac
 footer#status .ok{display:flex;gap:5px;align-items:center;margin-left:auto}
 footer#status svg{width:13px;height:13px}
 #toast{position:fixed;bottom:34px;left:50%;transform:translateX(-50%);background:#2a2324;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;z-index:90;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+
+/* ---------- v2: progreso de indexación e índices guardados ---------- */
+.fprog{margin:2px 10px 8px 34px}
+.fprog .pbar{height:6px;background:#ece6e2;border-radius:4px;overflow:hidden}
+.fprog .pbar i{display:block;height:100%;background:linear-gradient(90deg,var(--g),var(--g2));transition:width .3s}
+.fprog .ftxt{font-size:11.5px;color:var(--mut);margin-top:4px;line-height:1.35}
+.lnk{border:0;background:none;color:var(--g);text-decoration:underline;padding:0;font-size:11.5px;cursor:pointer}
+.nav.saved .t{display:flex;flex-direction:column;line-height:1.25}
+.nav.saved small{font-size:11px;color:var(--mut);font-weight:400}
+.nav.saved .del{width:26px;height:26px;margin-left:auto;opacity:0;color:var(--mut)}
+.nav.saved:hover .del{opacity:.8}
+.nav.saved .del svg{width:15px;height:15px}
+.wsaved{margin:18px 0 6px;text-align:left}
+.wsh{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px;font-weight:600}
+.wsi{display:flex;gap:10px;align-items:center;width:100%;border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 12px;margin-bottom:6px;text-align:left}
+.wsi:hover{border-color:var(--g2);background:var(--sel)}
+.wsi span{display:flex;flex-direction:column;min-width:0}
+.wsi b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wsi small{color:var(--mut);font-size:12px}
+.wsi svg{color:var(--g)}
 </style>
 </head>
 <body>
@@ -281,7 +301,7 @@ footer#status svg{width:13px;height:13px}
     <div class="wcard">
       <svg viewBox="0 0 24 24" style="width:46px;height:46px;color:var(--g);stroke-width:1.5"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
       <h1>Lector MBOX</h1>
-      <p>Consulta tus archivos de correo guardados (.mbox o .eml) como si estuvieras en tu bandeja.</p><p style="font-size:12.5px">Un archivo .mbox es el formato en que Google Takeout, Thunderbird y otros programas guardan respaldos de correo.</p>
+      <p>Consulta tus archivos de correo guardados (.mbox o .eml) como si estuvieras en tu bandeja.</p><p style="font-size:12.5px">Un archivo .mbox es el formato en que Google Takeout, Thunderbird y otros programas guardan respaldos de correo. Funciona también con archivos muy grandes: la primera vez se indexan y después abren al instante.</p>
       <div class="dropzone" id="dz">
         <p style="margin:0 0 12px;color:var(--txt)">Arrastra aquí uno o varios archivos <b>.mbox</b> o <b>.eml</b></p>
         <button class="btn primary" id="bOpen2"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Seleccionar archivos</button>
@@ -294,6 +314,7 @@ footer#status svg{width:13px;height:13px}
         <div><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Descarga de archivos adjuntos</div>
         <div><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/></svg>Impresión de mensajes</div>
       </div>
+      <div id="wSaved"></div>
       <div class="privacy"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Todo se procesa en este equipo. Ningún dato se envía a internet.</div>
     </div>
   </div>
@@ -302,471 +323,162 @@ footer#status svg{width:13px;height:13px}
 <footer id="status"><span id="stFiles">Sin archivos abiertos</span><span id="stIdx"></span><span class="ok"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Tus archivos no salen de este equipo</span><span id="stVer"></span></footer>
 
 <div id="drop" class="hidden">Suelta los archivos para abrirlos</div>
-<div id="prog" class="hidden"><div class="pcard"><h3 id="pTitle">Indexando…</h3><div class="ptxt" id="pFile"></div><div class="pbar"><i id="pBar"></i></div><div class="ptxt" id="pTxt"></div><div style="text-align:right;margin-top:12px"><button class="btn sm" id="pCancel">Cancelar</button></div></div></div>
 <div id="modal" class="hidden"><div class="mbox" id="mbox"></div></div>
 <div id="toast" class="hidden"></div>
 
+<script src="mime.js"></script>
 <script>
 'use strict';
 /* =====================================================================
    CONFIGURACIÓN INSTITUCIONAL (editable)
    ===================================================================== */
 const CONFIG = {
-  version: '1.0.1',
+  version: '2.0.0',
   titulo: 'Lector MBOX',
-  organizacion: 'CoBach BC · Uso institucional',
-  maxTextoIndexado: 60000,     // caracteres de cuerpo indexados por mensaje (búsqueda de texto completo)
-  maxTextoIndexadoGrande: 6000 // idem cuando el total abierto supera 1.5 GB
+  organizacion: 'CoBach BC · Uso institucional'
 };
-
-/* =====================================================================
-   UTILIDADES
-   ===================================================================== */
 const $ = s => document.querySelector(s);
-const XUD = new TextDecoder('x-user-defined');   // 1 byte = 1 carácter (bytes altos -> U+F780..U+F7FF)
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-const fmtSize = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB' : n < 1073741824 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1073741824).toFixed(2) + ' GB';
-const fmtNum = n => n.toLocaleString('es-MX');
-const sleep = () => new Promise(r => setTimeout(r, 0));
 const lsGet = (k, d) => { try { const v = localStorage.getItem('lectorMbox.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem('lectorMbox.' + k, JSON.stringify(v)); } catch (e) {} };
-
-function bin2bytes(s) { const n = s.length, u = new Uint8Array(n); for (let i = 0; i < n; i++) u[i] = s.charCodeAt(i) & 255; return u; }
-function bytes2bin(u) { let s = ''; const C = 0x8000; for (let i = 0; i < u.length; i += C) s += String.fromCharCode.apply(null, u.subarray(i, i + C)); return s; }
-
-function decodeBytes(u, cs) {
-  cs = (cs || '').toLowerCase().trim().replace(/^["']|["']$/g, '');
-  if (!cs || cs === 'us-ascii' || cs === 'ascii' || cs === 'utf8') cs = 'utf-8';
-  if (cs === 'utf-8') { try { return new TextDecoder('utf-8', { fatal: true }).decode(u); } catch (e) { return new TextDecoder('windows-1252').decode(u); } }
-  try { return new TextDecoder(cs).decode(u); }
-  catch (e) { try { return new TextDecoder('utf-8', { fatal: true }).decode(u); } catch (e2) { return new TextDecoder('windows-1252').decode(u); } }
-}
-function decode8bit(s) { return /[-]/.test(s) ? decodeBytes(bin2bytes(s), 'utf-8') : s; }
-
-function b64bytes(s) {
-  s = s.replace(/[^A-Za-z0-9+/]/g, '');
-  if (s.length % 4 === 1) s = s.slice(0, -1);
-  while (s.length % 4) s += '=';
-  try { return bin2bytes(atob(s)); } catch (e) { return new Uint8Array(0); }
-}
-function qpDecode(s, underscore) {
-  s = s.replace(/=\r?\n/g, '');
-  const out = new Uint8Array(s.length); let j = 0;
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i);
-    if (c === 61 && i + 2 < s.length + 0 && /^[0-9A-Fa-f]{2}$/.test(s.substr(i + 1, 2))) { out[j++] = parseInt(s.substr(i + 1, 2), 16); i += 2; }
-    else if (underscore && c === 95) out[j++] = 32;
-    else out[j++] = c & 255;
-  }
-  return out.subarray(0, j);
-}
-function pctBytes(s) { const a = []; for (let i = 0; i < s.length; i++) { if (s[i] === '%' && /^[0-9A-Fa-f]{2}$/.test(s.substr(i + 1, 2))) { a.push(parseInt(s.substr(i + 1, 2), 16)); i += 2; } else a.push(s.charCodeAt(i) & 255); } return a; }
-
-/* RFC 2047: =?charset?B|Q?texto?= */
-function decodeWords(s) {
-  if (!s) return '';
-  s = decode8bit(s);
-  s = s.replace(/(=\?[^?\s]+\?[bBqQ]\?[^?\s]*\?=)\s+(?==\?[^?\s]+\?[bBqQ]\?)/g, '$1');
-  return s.replace(/=\?([^?\s]+)\?([bBqQ])\?([^?\s]*)\?=/g, (m, cs, enc, txt) => {
-    try { const b = enc.toUpperCase() === 'B' ? b64bytes(txt) : qpDecode(txt, true); return decodeBytes(b, cs.split('*')[0]); } catch (e) { return m; }
-  });
-}
-
-/* =====================================================================
-   PARSER MIME
-   ===================================================================== */
-function splitHB(s) { const m = /\r?\n\r?\n/.exec(s); return m ? [s.slice(0, m.index), s.slice(m.index + m[0].length)] : [s, '']; }
-
-function parseHeaders(h) {
-  const list = [];
-  for (const ln of h.split(/\r?\n/)) {
-    if (/^[ \t]/.test(ln) && list.length) list[list.length - 1].v += ' ' + ln.trim();
-    else { const k = ln.indexOf(':'); if (k > 0) list.push({ n: ln.slice(0, k).trim(), v: ln.slice(k + 1).trim() }); }
-  }
-  const map = {};
-  for (const x of list) { const n = x.n.toLowerCase(); (map[n] || (map[n] = [])).push(x.v); }
-  return { list, map, get(n) { const a = map[n]; return a ? a[0] : ''; }, all(n) { return map[n] || []; } };
-}
-
-function parseParams(v) {
-  const parts = []; let cur = '', q = false;
-  for (let i = 0; i < v.length; i++) {
-    const c = v[i];
-    if (c === '"') { q = !q; cur += c; }
-    else if (c === '\\' && q) { cur += c + (v[i + 1] || ''); i++; }
-    else if (c === ';' && !q) { parts.push(cur); cur = ''; }
-    else cur += c;
-  }
-  parts.push(cur);
-  const value = (parts.shift() || '').trim().toLowerCase();
-  const params = {}, cont = {};
-  for (const p of parts) {
-    const k = p.indexOf('='); if (k < 0) continue;
-    const key = p.slice(0, k).trim().toLowerCase();
-    let val = p.slice(k + 1).trim();
-    if (val.startsWith('"')) val = val.slice(1, val.endsWith('"') && val.length > 1 ? -1 : undefined).replace(/\\(.)/g, '$1');
-    const m = /^([^*]+)(?:\*(\d+))?(\*)?$/.exec(key);
-    if (m && (m[2] !== undefined || m[3])) (cont[m[1]] || (cont[m[1]] = [])).push({ i: m[2] === undefined ? 0 : +m[2], enc: !!m[3], val });
-    else params[key] = val;
-  }
-  for (const [base, arr] of Object.entries(cont)) {   // RFC 2231
-    arr.sort((a, b) => a.i - b.i);
-    let cs = 'utf-8'; const bytes = [];
-    arr.forEach((x, idx) => {
-      let val = x.val;
-      if (x.enc) {
-        if (idx === 0) { const mm = /^([^']*)'[^']*'(.*)$/.exec(val); if (mm) { cs = mm[1] || 'utf-8'; val = mm[2]; } }
-        for (const b of pctBytes(val)) bytes.push(b);
-      } else for (let i = 0; i < val.length; i++) bytes.push(val.charCodeAt(i) & 255);
-    });
-    try { params[base] = decodeBytes(new Uint8Array(bytes), cs); } catch (e) {}
-  }
-  return { value, params };
-}
-
-function splitMultipart(body, boundary) {
-  const e = boundary.replace(/[.*+?^${}()|[\]\\\/-]/g, '\\$&');
-  const re = new RegExp('(^|\\r?\\n)--' + e + '(--)?[ \\t]*(\\r?\\n|$)', 'g');
-  const parts = []; let m, last = -1;
-  while ((m = re.exec(body))) {
-    if (last >= 0) parts.push(body.slice(last, Math.max(last, m.index)));
-    if (m[2]) { last = -1; break; }
-    last = m.index + m[0].length;
-    re.lastIndex = last - (m[3] ? m[3].length : 0);
-    if (re.lastIndex <= m.index) re.lastIndex = m.index + 1;
-  }
-  if (last >= 0 && last < body.length) parts.push(body.slice(last));
-  return parts;
-}
-
-function parseEntity(s, defType, depth) {
-  depth = depth || 0;
-  const [h, b] = splitHB(s);
-  const H = parseHeaders(h);
-  const ctv = H.get('content-type');
-  const ct = ctv ? parseParams(ctv) : { value: defType || 'text/plain', params: {} };
-  if (!ct.value || !ct.value.includes('/')) ct.value = defType || 'text/plain';
-  const cdv = H.get('content-disposition');
-  const cd = cdv ? parseParams(cdv) : { value: '', params: {} };
-  const n = {
-    H, type: ct.value, ctp: ct.params, disp: cd.value, dp: cd.params,
-    cte: (H.get('content-transfer-encoding') || '').toLowerCase().trim(),
-    cid: decode8bit(H.get('content-id') || '').replace(/^\s*<|>\s*$/g, '').trim(),
-    body: b, children: null
-  };
-  n.filename = decodeWords(n.dp.filename || n.ctp.name || '').replace(/[\\/]/g, '_').trim();
-  if (n.type.startsWith('multipart/') && n.ctp.boundary && depth < 40) {
-    const dt = n.type === 'multipart/digest' ? 'message/rfc822' : 'text/plain';
-    n.children = splitMultipart(b, n.ctp.boundary).map(p => parseEntity(p, dt, depth + 1));
-    n.body = '';
-  }
-  return n;
-}
-
-function partBytes(n) {
-  if (n.cte === 'base64') return b64bytes(n.body);
-  if (n.cte === 'quoted-printable') return qpDecode(n.body);
-  return bin2bytes(n.body);
-}
-function partText(n, max) {
-  let body = n.body;
-  if (max && body.length > max * 2) body = body.slice(0, max * 2);
-  const nn = body === n.body ? n : Object.assign({}, n, { body });
-  return decodeBytes(partBytes(nn), n.ctp.charset || 'utf-8');
-}
-function estSize(n) { return n.cte === 'base64' ? Math.floor(n.body.replace(/\s/g, '').length * 3 / 4) : n.body.length; }
-
-/* Clasifica el árbol: cuerpo(s) visibles, adjuntos e imágenes incrustadas (cid) */
-function walkTree(root) {
-  const ctx = { root, bodies: [], atts: [], cids: {}, altText: null };
-  (function walk(n) {
-    if (n.children) {
-      if (n.type === 'multipart/alternative' && n.children.length) {
-        const k = n.children; let pick = null;
-        for (let i = k.length - 1; i >= 0; i--) if (k[i].children || k[i].type === 'text/html') { pick = k[i]; break; }
-        if (!pick) pick = k.find(x => x.type === 'text/plain') || k[k.length - 1];
-        for (const x of k) { if (x === pick) walk(x); else if (x.type === 'text/plain' && !ctx.altText) ctx.altText = x; }
-        return;
-      }
-      for (const x of n.children) walk(x);
-      return;
-    }
-    if (n.type === 'message/rfc822' && n !== root) { ctx.atts.push(n); return; }
-    const isText = n.type === 'text/plain' || n.type === 'text/html';
-    if (isText && n.disp !== 'attachment' && !(n.filename && n.disp !== 'inline')) { ctx.bodies.push(n); return; }
-    if (n.cid) ctx.cids[n.cid.toLowerCase()] = n;
-    if (!n.body && !n.filename) return;
-    ctx.atts.push(n);
-  })(root);
-  return ctx;
-}
-
-/* =====================================================================
-   TEXTO Y HTML
-   ===================================================================== */
-const ENT = { nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", aacute: 'á', eacute: 'é', iacute: 'í', oacute: 'ó', uacute: 'ú', ntilde: 'ñ', uuml: 'ü', iexcl: '¡', iquest: '¿', laquo: '«', raquo: '»', ndash: '–', mdash: '—', hellip: '…', copy: '©', reg: '®', deg: '°', bull: '•', middot: '·', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“', euro: '€' };
-function decodeEntities(s) {
-  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+\d*);/gi, (m, e) => {
-    if (e[0] === '#') { const c = e[1].toLowerCase() === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); try { return String.fromCodePoint(c); } catch (_) { return m; } }
-    const v = ENT[e.toLowerCase()]; return v === undefined ? m : v;
-  });
-}
-function html2text(h) {
-  return decodeEntities(h.replace(/<(script|style|head|title)[\s\S]*?<\/\1\s*>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|tr|li|h\d|table|blockquote)>/gi, '\n').replace(/<[^>]+>/g, ' '))
-    .replace(/[ \t\f\v ]+/g, ' ').replace(/\s*\n\s*/g, '\n').replace(/\n{2,}/g, '\n').trim();
-}
-function linkify(escaped) {
-  return escaped.replace(/\b(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"&]|https?:\/\/[^\s<]+(?:&amp;[^\s<]+)+)/g, '<a href="$1">$1</a>');
-}
-function text2html(t) {
-  const lines = esc(t).split(/\r?\n/).map(l => /^(&gt;\s?)+/.test(l) ? '<span class="q">' + l + '</span>' : l);
-  return '<pre class="plain">' + linkify(lines.join('\n')) + '</pre>';
-}
-const FRAME_CSS = 'html{background:#fff}body{font:14px/1.55 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;color:#202124;margin:18px 20px;word-wrap:break-word;overflow-wrap:anywhere}img{max-width:100%;height:auto}pre.plain{white-space:pre-wrap;font:14px/1.55 "Segoe UI",system-ui,Arial,sans-serif;margin:0}span.q{color:#7a6f69}a{color:#1a56b8}blockquote{border-left:3px solid #ddd;margin:8px 0;padding-left:12px;color:#555}table{max-width:100%}hr.sep{border:0;border-top:1px dashed #ccc;margin:22px 0}';
-function frameDoc(inner, allowRemote, extraCss) {
-  const r = allowRemote ? ' https: http:' : '';
-  const csp = "default-src 'none'; img-src data:" + r + "; style-src 'unsafe-inline'" + r + "; font-src data:" + r + "; media-src data:";
-  return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + csp + '"><base target="_blank"><style>' + FRAME_CSS + (extraCss || '') + '</style></head><body>' + inner + '</body></html>';
-}
-function hasRemote(html) { return /<img[^>]+src\s*=\s*["']?\s*https?:|url\(\s*["']?\s*https?:|background\s*=\s*["']?\s*https?:|<link[^>]+href\s*=\s*["']?\s*https?:/i.test(html); }
-function toDataURL(n) {
-  const b64 = n.cte === 'base64' ? n.body.replace(/[^A-Za-z0-9+/=]/g, '') : btoa(bytes2bin(partBytes(n)));
-  return 'data:' + (n.type || 'application/octet-stream') + ';base64,' + b64;
-}
-
-function buildBody(root) {
-  const ctx = walkTree(root);
-  const parts = [];
-  for (const b of ctx.bodies) { const t = partText(b); parts.push(b.type === 'text/html' ? t : text2html(t)); }
-  let html = parts.length ? parts.join('<hr class="sep">') : '<p style="color:#888">(Mensaje sin cuerpo de texto)</p>';
-  const used = new Set();
-  html = html.replace(/(["'(=\s])cid:([^"')\s>]+)/gi, (m, p, id) => {
-    let k = id; try { k = decodeURIComponent(id); } catch (e) {}
-    const n = ctx.cids[k.toLowerCase()];
-    if (n) { used.add(n); return p + toDataURL(n); }
-    return m;
-  });
-  return { html, atts: ctx.atts.filter(n => !used.has(n)), remote: hasRemote(html), ctx };
-}
-
-/* =====================================================================
-   DIRECCIONES Y FECHAS
-   ===================================================================== */
-function parseAddrs(s) {
-  s = decodeWords(s || '');
-  const out = []; let cur = '', q = false, a = 0;
-  for (const c of s) {
-    if (c === '"') q = !q;
-    if (!q) { if (c === '<') a++; if (c === '>') a--; if ((c === ',' || c === ';') && a <= 0) { out.push(cur); cur = ''; continue; } }
-    cur += c;
-  }
-  out.push(cur);
-  return out.map(x => {
-    x = x.trim().replace(/^[^:<"]*:\s*/, m => /@/.test(m) ? m : '');
-    const m = /^(.*)<([^>]*)>\s*$/.exec(x);
-    if (m) return { name: m[1].trim().replace(/^"|"$/g, '').replace(/\\"/g, '"').trim(), addr: m[2].trim() };
-    const c = /\(([^)]*)\)/.exec(x);
-    return { name: c ? c[1].trim() : '', addr: x.replace(/\([^)]*\)/g, '').trim() };
-  }).filter(x => x.addr || x.name);
-}
-const addrTxt = a => a.name ? a.name + ' <' + a.addr + '>' : a.addr;
-function parseDate(s, fromLine) {
-  let t = Date.parse((s || '').replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim());
-  if (isNaN(t) && fromLine) { const m = /^From \S+\s+(.*)$/.exec(fromLine); if (m) t = Date.parse(m[1]); }
-  return isNaN(t) ? 0 : t;
-}
-const DF_FULL = new Intl.DateTimeFormat('es-MX', { dateStyle: 'full', timeStyle: 'medium' });
-const DF_SHORT = new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
-const DF_DM = new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' });
-const DF_HM = new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit' });
-const DF_ROW = new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-function listDate(t) {
-  if (!t) return '—';
-  const d = new Date(t), n = new Date();
-  if (d.toDateString() === n.toDateString()) return DF_HM.format(d);
-  if (d.getFullYear() === n.getFullYear()) return DF_DM.format(d);
-  return DF_SHORT.format(d);
-}
-function isoLocal(t) { if (!t) return ''; const d = new Date(t), p = x => String(x).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()); }
-
-/* =====================================================================
-   TIPOS DE ARCHIVO
-   ===================================================================== */
-const EXT_KIND = {
-  pdf: 'pdf', png: 'img', jpg: 'img', jpeg: 'img', gif: 'img', webp: 'img', bmp: 'img', svg: 'img', ico: 'img', avif: 'img',
-  txt: 'text', log: 'text', md: 'text', json: 'text', xml: 'text', ini: 'text', cfg: 'text', conf: 'text', sql: 'text', js: 'text', css: 'text', py: 'text', ps1: 'text', bat: 'text', sh: 'text', yml: 'text', yaml: 'text', ics: 'text', vcf: 'text', vcs: 'text', srt: 'text', vtt: 'text', tsv: 'csv', csv: 'csv',
-  htm: 'html', html: 'html', eml: 'eml', docx: 'docx', docm: 'docx', dotx: 'docx', xlsx: 'xlsx', xlsm: 'xlsx', xltx: 'xlsx', pptx: 'pptx', ppsx: 'pptx', pptm: 'pptx', odt: 'odt', ods: 'ods', odp: 'odp', rtf: 'rtf', zip: 'zip',
-  mp3: 'audio', wav: 'audio', ogg: 'audio', m4a: 'audio', aac: 'audio', opus: 'audio', mp4: 'video', webm: 'video', mov: 'video', m4v: 'video'
-};
-const BADGES = {
-  pdf: ['PDF', '#c62828'], img: ['IMG', '#7b3fa6'], doc: ['DOC', '#1f5fbf'], docx: ['DOC', '#1f5fbf'], odt: ['ODT', '#1f5fbf'], rtf: ['RTF', '#1f5fbf'],
-  xlsx: ['XLS', '#1d7a43'], ods: ['ODS', '#1d7a43'], csv: ['CSV', '#1d7a43'], xls: ['XLS', '#1d7a43'], pptx: ['PPT', '#d4561c'], odp: ['ODP', '#d4561c'], ppt: ['PPT', '#d4561c'],
-  zip: ['ZIP', '#6b625c'], eml: ['EML', '#b8860b'], text: ['TXT', '#5a6b7a'], html: ['HTML', '#a33d6a'], audio: ['AUD', '#2b7a8c'], video: ['VID', '#2b7a8c'], other: ['', '#8a817b']
-};
-function extOf(name) { const m = /\.([a-z0-9]{1,6})$/i.exec(name || ''); return m ? m[1].toLowerCase() : ''; }
-function kindOf(n) {
-  const name = attName(n), ext = extOf(name), t = n.type || '';
-  if (t === 'message/rfc822') return 'eml';
-  if (EXT_KIND[ext]) return EXT_KIND[ext];
-  if (t === 'application/pdf') return 'pdf';
-  if (/^image\//.test(t)) return 'img';
-  if (/^audio\//.test(t)) return 'audio';
-  if (/^video\//.test(t)) return 'video';
-  if (t === 'text/html') return 'html';
-  if (t === 'text/csv') return 'csv';
-  if (/^text\//.test(t) || /json|xml|calendar/.test(t)) return 'text';
-  if (/wordprocessingml/.test(t)) return 'docx';
-  if (/spreadsheetml/.test(t)) return 'xlsx';
-  if (/presentationml/.test(t)) return 'pptx';
-  if (/zip/.test(t)) return 'zip';
-  if (ext === 'doc') return 'doc'; if (ext === 'xls') return 'xls'; if (ext === 'ppt') return 'ppt';
-  return 'other';
-}
-function attName(n) {
-  if (n.filename) return n.filename;
-  if (n.type === 'message/rfc822') { try { const s = decodeWords(parseHeaders(splitHB(n.body)[0]).get('subject')); return (s || 'mensaje').slice(0, 80) + '.eml'; } catch (e) { return 'mensaje.eml'; } }
-  const sub = (n.type || '').split('/')[1] || 'bin';
-  return 'adjunto.' + sub.replace(/[^a-z0-9]/gi, '').slice(0, 5);
-}
-function badgeHTML(kind, ext) {
-  const b = BADGES[kind] || BADGES.other;
-  const label = b[0] || (ext || 'ARCH').toUpperCase().slice(0, 4);
-  return '<span class="badge" style="background:' + b[1] + '">' + esc(label) + '</span>';
-}
-
 /* =====================================================================
    ESTADO
    ===================================================================== */
 const APP = {
-  files: [], msgs: [], view: [], sel: -1, cur: null, quick: { type: 'all' }, query: '', sort: 'date-desc',
-  cancel: false, busy: false, urls: [], remoteOk: new Set(), labels: new Map(), totalBytes: 0
+  files: [], keyIdx: {}, msgs: [], order: new Uint32Array(0), view: [], sel: -1, quick: { type: 'all' }, query: '', sort: 'date-desc',
+  urls: [], remoteOk: new Set(), labels: new Map(), withAtt: 0, saved: [], usage: null,
+  body: { sig: '', terms: [], idx: {}, masks: {}, pending: false, pct: 0, qid: 0 }
 };
 const ROW = 72;
+const worker = new Worker('indexer.js');
+worker.onmessage = e => onWorker(e.data);
+worker.onerror = e => { console.error(e); toast('Error del indexador: ' + (e.message || 'desconocido')); };
+const fileKey = f => f.name + '|' + f.size + '|' + f.lastModified;
+const fmtDur = s => s < 60 ? 'menos de 1 min' : s < 3600 ? 'unos ' + Math.round(s / 60) + ' min' : Math.floor(s / 3600) + ' h ' + Math.round((s % 3600) / 60) + ' min';
+
+function onWorker(d) {
+  const fi = d.key ? APP.keyIdx[d.key] : undefined, F = fi !== undefined ? APP.files[fi] : null;
+  switch (d.type) {
+    case 'batch':
+      if (!F) return;
+      for (const r of d.recs) {
+        r.f = fi; r.id = APP.msgs.length; r.size = r.e - r.s; APP.msgs.push(r);
+        if (r.na) APP.withAtt++;
+        for (const l of r.lb) APP.labels.set(l, (APP.labels.get(l) || 0) + 1);
+      }
+      F.count += d.recs.length; scheduleRefresh(); break;
+    case 'loaded':
+      if (!F) return;
+      F.complete = d.complete; F.bytes = d.bytes; F.state = d.complete ? 'ready' : 'queued';
+      if (d.count) toast(d.complete ? 'Índice recuperado: ' + fmtNum(d.count) + ' mensajes, sin volver a indexar' : 'Se continúa la indexación desde ' + Math.round(100 * d.bytes / d.total) + '%');
+      scheduleRefresh(true); break;
+    case 'queued': if (F && !F.complete) { F.state = 'queued'; scheduleSide(); } break;
+    case 'progress': if (!F) return; F.state = 'indexing'; F.bytes = d.bytes; F.rate = d.rate; scheduleSide(); break;
+    case 'stopped': if (!F) return; F.state = 'paused'; F.bytes = d.bytes; scheduleSide(); refreshSaved(); break;
+    case 'done':
+      if (!F) return; F.state = 'ready'; F.complete = true; F.bytes = F.size;
+      toast('Indexación terminada: ' + fmtNum(F.count) + ' mensajes en «' + F.name + '»');
+      if (APP.body.terms.length) startBodyScan();
+      scheduleRefresh(true); break;
+    case 'error':
+      if (F) { F.state = 'error'; F.err = d.msg; scheduleSide(); }
+      toast(d.msg); break;
+    case 'list': APP.saved = d.files; APP.usage = d.usage; scheduleSide(); break;
+    case 'scanProgress': if (d.qid !== APP.body.qid) return; APP.body.pct = d.pct; updateCounts(); break;
+    case 'scan':
+      if (d.qid !== APP.body.qid) return;
+      if (d.key) APP.body.masks[d.key] = d.mask;
+      if (d.last) APP.body.pending = false;
+      applyFilters(true); break;
+  }
+}
+function refreshSaved() { worker.postMessage({ cmd: 'list' }); }
 
 /* =====================================================================
-   CARGA E INDEXACIÓN
+   ABRIR ARCHIVOS
    ===================================================================== */
-function isStartLine(s, idx) {   // idx = posición de la "F" de "From "
-  if (idx === 0) return true;
-  if (s[idx - 1] !== '\n') return false;
-  if (idx >= 2 && (s[idx - 2] === '\n' || (s[idx - 2] === '\r' && idx >= 3 && s[idx - 3] === '\n'))) return true;
-  let e = s.indexOf('\n', idx); if (e < 0) e = Math.min(s.length, idx + 300);
-  return /^From \S+\s+.*\d{1,2}:\d{2}/.test(s.slice(idx, Math.min(e, idx + 300)));
-}
-
-async function loadFiles(list) {
-  list = [...list].filter(f => f && f.size > 0);
-  if (!list.length || APP.busy) return;
-  APP.busy = true; APP.cancel = false;
-  $('#prog').classList.remove('hidden');
-  const totalAll = list.reduce((a, f) => a + f.size, 0);
-  APP.totalBytes += totalAll;
-  const cap = APP.totalBytes > 1.5e9 ? CONFIG.maxTextoIndexadoGrande : CONFIG.maxTextoIndexado;
-  let doneAll = 0, t0 = performance.now(), lastUi = 0;
-  try {
-    for (const file of list) {
-      if (APP.cancel) break;
-      const fi = APP.files.length;
-      const rec = { file, name: file.name, size: file.size, count: 0 };
-      APP.files.push(rec);
-      $('#pFile').textContent = file.name + ' · ' + fmtSize(file.size);
-      const CH = 8 * 1024 * 1024;
-      let off = 0, carry = '', carryOff = 0, first = true, single = false;
-      while (off < file.size || carry) {
-        if (APP.cancel) break;
-        let chunk = '';
-        if (off < file.size) { const buf = await file.slice(off, off + CH).arrayBuffer(); chunk = XUD.decode(buf); off += buf.byteLength; }
-        const last = off >= file.size;
-        let s = carry + chunk; const base = carryOff;
-        if (first) {
-          first = false;
-          let k = 0; while (k < s.length && /[\r\n]/.test(s[k])) k++;
-          if (!s.startsWith('From ', k)) single = true;     // archivo .eml (un solo mensaje)
-          else if (k) { s = s.slice(k); carryOff += k; }
-        }
-        if (single) {
-          if (!last) { carry = s; continue; }
-          indexMessage(s, fi, base, base + s.length, cap); rec.count++; carry = ''; break;
-        }
-        const limit = last ? s.length : Math.max(0, s.length - 4096);
-        const starts = [0];
-        const re = /\nFrom /g; re.lastIndex = 0; let m;
-        while ((m = re.exec(s)) && m.index + 1 < limit) { if (isStartLine(s, m.index + 1)) starts.push(m.index + 1); }
-        const usable = last ? starts.length : starts.length - 1;
-        for (let i = 0; i < usable; i++) {
-          const a = starts[i], b = i + 1 < starts.length ? starts[i + 1] : s.length;
-          indexMessage(s.slice(a, b), fi, carryOff + a, carryOff + b, cap); rec.count++;
-        }
-        if (last) { carry = ''; break; }
-        const ls = starts[starts.length - 1];
-        carry = s.slice(ls); carryOff = carryOff + ls;
-        void base;
-        const now = performance.now();
-        if (now - lastUi > 120) {
-          lastUi = now;
-          const done = doneAll + off;
-          $('#pBar').style.width = (100 * done / totalAll).toFixed(1) + '%';
-          $('#pTxt').textContent = fmtNum(APP.msgs.length) + ' mensajes · ' + fmtSize(done) + ' de ' + fmtSize(totalAll);
-          await sleep();
-        }
-      }
-      doneAll += file.size;
-    }
-  } catch (err) {
-    console.error(err); toast('Error al leer el archivo: ' + err.message);
+async function pickFiles() {
+  if (window.showOpenFilePicker) {
+    try {
+      const hs = await window.showOpenFilePicker({ multiple: true, types: [{ description: 'Archivos de correo', accept: { 'application/mbox': ['.mbox', '.mbx'], 'message/rfc822': ['.eml'] } }] });
+      return openEntries(await Promise.all(hs.map(async h => ({ file: await h.getFile(), handle: h }))));
+    } catch (e) { if (e.name === 'AbortError') return; }
   }
-  APP.busy = false;
-  $('#prog').classList.add('hidden');
-  const secs = ((performance.now() - t0) / 1000).toFixed(1);
-  if (APP.cancel) toast('Carga cancelada. Se indexaron ' + fmtNum(APP.msgs.length) + ' mensajes.');
-  else toast('Listo: ' + fmtNum(APP.msgs.length) + ' mensajes indexados en ' + secs + ' s');
-  $('#welcome').classList.toggle('hidden', APP.msgs.length > 0);
-  rebuildSide(); applyFilters(true);
+  $('#file').click();
+}
+function openEntries(entries) {
+  entries = entries.filter(x => x && x.file && x.file.size > 0);
+  if (!entries.length) return;
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  for (const { file, handle } of entries) {
+    const key = fileKey(file);
+    if (APP.keyIdx[key] !== undefined) { toast('«' + file.name + '» ya está abierto'); continue; }
+    const fi = APP.files.length;
+    APP.files.push({ key, name: file.name, size: file.size, file, count: 0, state: 'loading', bytes: 0, complete: false });
+    APP.keyIdx[key] = fi;
+    worker.postMessage({ cmd: 'open', key, name: file.name, size: file.size, lastModified: file.lastModified, file, handle: handle || null, cap: file.size < 1.5e9 ? 30000 : 3000 });
+  }
+  $('#welcome').classList.add('hidden');
+  rebuildSide(); updateCounts(); renderList();
+}
+async function openSaved(s) {
+  if (s.handle && s.handle.queryPermission) {
+    try {
+      let p = await s.handle.queryPermission({ mode: 'read' });
+      if (p !== 'granted') p = await s.handle.requestPermission({ mode: 'read' });
+      if (p === 'granted') {
+        const f = await s.handle.getFile();
+        if (fileKey(f) !== s.key) toast('El archivo cambió desde que se indexó; se indexará de nuevo.');
+        return openEntries([{ file: f, handle: s.handle }]);
+      }
+    } catch (e) { /* el archivo se movió o se borró */ }
+  }
+  toast('Selecciona el archivo «' + s.name + '» para abrir su índice');
+  pickFiles();
+}
+function closeFiles() {
+  if (!APP.files.length) return;
+  const busy = APP.files.some(f => f.state === 'indexing' || f.state === 'queued');
+  if (!confirm(busy ? 'Se detendrá la indexación en curso (podrás continuarla después). ¿Cerrar los archivos?' : '¿Cerrar los archivos abiertos? Sus índices quedan guardados en este equipo.')) return;
+  for (const f of APP.files) if (f.state === 'indexing' || f.state === 'queued') worker.postMessage({ cmd: 'stop', key: f.key });
+  APP.files = []; APP.keyIdx = {}; APP.msgs = []; APP.order = new Uint32Array(0); APP.view = []; APP.sel = -1; APP.labels = new Map(); APP.withAtt = 0; APP.quick = { type: 'all' }; APP.remoteOk.clear();
+  APP.body = { sig: '', terms: [], idx: {}, masks: {}, pending: false, pct: 0, qid: APP.body.qid + 1 };
+  revokeAll(); $('#reader').innerHTML = '<div class="empty"><p>Selecciona un mensaje para leerlo</p></div>';
+  $('#welcome').classList.remove('hidden'); rebuildSide(); applyFilters(false); setTimeout(refreshSaved, 500);
 }
 
-function indexMessage(raw, fi, start, end, cap) {
-  let fromLine = '', skip = 0;
-  if (raw.startsWith('From ')) { const k = raw.indexOf('\n'); fromLine = raw.slice(0, k < 0 ? raw.length : k).replace(/\r$/, ''); skip = k < 0 ? raw.length : k + 1; }
-  const body = raw.slice(skip);
-  let root;
-  try { root = parseEntity(body); } catch (e) { root = { H: parseHeaders(''), type: 'text/plain', ctp: {}, body: body, children: null }; }
-  const H = root.H;
-  const from = parseAddrs(H.get('from'))[0] || parseAddrs(H.get('sender'))[0] || { name: '', addr: '' };
-  const to = H.all('to').map(parseAddrs).flat(), cc = H.all('cc').map(parseAddrs).flat(), bcc = H.all('bcc').map(parseAddrs).flat();
-  const subj = decodeWords(H.get('subject')).replace(/\s+/g, ' ').trim();
-  const labels = decodeWords(H.get('x-gmail-labels')).split(',').map(x => x.trim().replace(/^"|"$/g, '')).filter(Boolean);
-  let text = '', atts = [];
-  try {
-    const ctx = walkTree(root);
-    const tparts = [];
-    if (ctx.altText && !ctx.bodies.some(b => b.type === 'text/plain')) tparts.push(partText(ctx.altText, cap));
-    for (const b of ctx.bodies) { const t = partText(b, cap * 3); tparts.push(b.type === 'text/html' ? html2text(t) : t); }
-    text = tparts.join('\n').replace(/\s+/g, ' ').trim();
-    atts = ctx.atts.filter(n => !(n.cid && n.disp !== 'attachment' && /^image\//.test(n.type) && !n.filename)).map(n => ({ name: attName(n), size: estSize(n), kind: kindOf(n) }));
-  } catch (e) { text = ''; }
-  const m = {
-    id: APP.msgs.length, f: fi, s: start, e: end, size: end - start,
-    from, to, cc, bcc, subj, date: parseDate(H.get('date'), fromLine), labels, atts,
-    msgid: decode8bit(H.get('message-id')).replace(/^<|>$/g, ''),
-    snip: text.slice(0, 180),
-    nFrom: norm(from.name + ' ' + from.addr), nTo: norm(to.map(addrTxt).join(' ')), nCc: norm(cc.map(addrTxt).join(' ')), nBcc: norm(bcc.map(addrTxt).join(' ')),
-    nSubj: norm(subj), nBody: norm(text.slice(0, cap)), nAtt: norm(atts.map(a => a.name).join(' ')), nLabels: norm(labels.join('|'))
-  };
-  APP.msgs.push(m);
-  for (const l of labels) APP.labels.set(l, (APP.labels.get(l) || 0) + 1);
+/* =====================================================================
+   ORDEN Y REFRESCO
+   ===================================================================== */
+let refT = null, lastSort = 0, sideT = null;
+function scheduleRefresh(now) {
+  if (refT) { if (!now) return; clearTimeout(refT); }
+  const iv = now ? 0 : Math.max(700, APP.msgs.length / 200);
+  refT = setTimeout(() => { refT = null; resort(); applyFilters(true); rebuildSide(); }, Math.max(0, iv - (Date.now() - lastSort)));
+}
+function scheduleSide() { if (sideT) return; sideT = setTimeout(() => { sideT = null; rebuildSide(); updateCounts(); }, 400); }
+const COLL = new Intl.Collator('es', { sensitivity: 'base' });
+const RE_PREF = /^((re|rv|fw|fwd|reenviar|respuesta)\s*:\s*)+/i;
+function resort() {
+  lastSort = Date.now();
+  const M = APP.msgs, s = APP.sort, n = M.length, ids = new Uint32Array(n);
+  for (let i = 0; i < n; i++) ids[i] = i;
+  if (s === 'date-asc') ids.sort((a, b) => M[a].d - M[b].d || a - b);
+  else if (s === 'from') ids.sort((a, b) => COLL.compare(M[a].fn || M[a].fa, M[b].fn || M[b].fa) || M[b].d - M[a].d);
+  else if (s === 'subj') ids.sort((a, b) => COLL.compare(M[a].su.replace(RE_PREF, ''), M[b].su.replace(RE_PREF, '')) || M[b].d - M[a].d);
+  else if (s === 'size') ids.sort((a, b) => M[b].size - M[a].size);
+  else ids.sort((a, b) => M[b].d - M[a].d || b - a);
+  APP.order = ids;
 }
 
 /* =====================================================================
    BÚSQUEDA
    ===================================================================== */
 const FIELD = {
-  from: 'from', de: 'from', to: 'to', para: 'to', cc: 'cc', bcc: 'bcc', cco: 'bcc', subject: 'subject', asunto: 'subject',
-  has: 'has', tiene: 'has', filename: 'filename', adjunto: 'filename', archivo_adjunto: 'filename',
+  from: 'from', de: 'from', to: 'to', para: 'to', cc: 'to', bcc: 'to', cco: 'to', subject: 'subject', asunto: 'subject',
+  has: 'has', tiene: 'has', filename: 'filename', adjunto: 'filename',
   after: 'after', despues: 'after', desde: 'after', before: 'before', antes: 'before', hasta: 'before',
   larger: 'larger', mayor: 'larger', smaller: 'smaller', menor: 'smaller', label: 'label', etiqueta: 'label', in: 'label',
-  mbox: 'mbox', archivo: 'mbox', body: 'body', cuerpo: 'body', id: 'msgid'
+  mbox: 'mbox', archivo: 'mbox', body: 'body', cuerpo: 'body', texto: 'body'
 };
 function parseQuery(q) {
   const toks = [], re = /(-)?(?:([\wñáéíóú]+):)?(?:"([^"]*)"?|(\S+))/gi; let m;
@@ -790,61 +502,76 @@ function parseQDate(v) {
   const t = Date.parse(v); return isNaN(t) ? null : t;
 }
 function parseQSize(v) { const m = /^([\d.]+)\s*([kmg]?)b?$/i.exec(v); if (!m) return null; return parseFloat(m[1]) * ({ '': 1, k: 1024, m: 1048576, g: 1073741824 })[m[2].toLowerCase()]; }
+function bodyHas(m, v) {
+  const mk = APP.body.masks[APP.files[m.f].key], bit = APP.body.idx[v];
+  if (!mk || bit === undefined || m.o >= mk.length) return false;
+  return (mk[m.o] >> bit) & 1;
+}
 function termMatch(m, t) {
   const v = t.nv;
   switch (t.field) {
-    case 'from': return m.nFrom.includes(v);
-    case 'to': return m.nTo.includes(v) || m.nCc.includes(v) || m.nBcc.includes(v);
-    case 'cc': return m.nCc.includes(v);
-    case 'bcc': return m.nBcc.includes(v);
-    case 'subject': return m.nSubj.includes(v);
-    case 'body': return m.nBody.includes(v);
-    case 'filename': return m.nAtt.includes(v);
-    case 'label': return m.nLabels.includes(v);
+    case 'from': return m.nF.includes(v);
+    case 'to': return m.nT.includes(v);
+    case 'subject': return m.nS.includes(v);
+    case 'body': return !!bodyHas(m, v);
+    case 'filename': return m.nA.includes(v);
+    case 'label': return m.nL.includes(v);
     case 'mbox': return norm(APP.files[m.f].name).includes(v);
-    case 'msgid': return norm(m.msgid).includes(v);
     case 'has': {
-      if (/^(attachment|adjuntos?|archivos?)$/.test(v)) return m.atts.length > 0;
-      if (v === 'pdf') return m.atts.some(a => a.kind === 'pdf');
-      if (/^(image|imagen|imagenes|foto)$/.test(v)) return m.atts.some(a => a.kind === 'img');
-      if (/^(document|documento|word|doc)$/.test(v)) return m.atts.some(a => /^(docx|doc|odt|rtf)$/.test(a.kind));
-      if (/^(spreadsheet|hoja|excel|xls)$/.test(v)) return m.atts.some(a => /^(xlsx|xls|ods|csv)$/.test(a.kind));
-      if (/^(presentation|presentacion|powerpoint|ppt)$/.test(v)) return m.atts.some(a => /^(pptx|ppt|odp)$/.test(a.kind));
-      if (/^(zip|comprimido)$/.test(v)) return m.atts.some(a => a.kind === 'zip');
-      if (/^(eml|mensaje)$/.test(v)) return m.atts.some(a => a.kind === 'eml');
-      return m.nAtt.includes(v);
+      if (/^(attachment|adjuntos?|archivos?)$/.test(v)) return m.na > 0;
+      if (v === 'pdf') return m.ak.includes(' pdf ');
+      if (/^(image|imagen|imagenes|foto|fotos)$/.test(v)) return m.ak.includes(' img ');
+      if (/^(document|documento|word|doc)$/.test(v)) return / (docx|doc|odt|rtf) /.test(m.ak);
+      if (/^(spreadsheet|hoja|excel|xls)$/.test(v)) return / (xlsx|xls|ods|csv) /.test(m.ak);
+      if (/^(presentation|presentacion|powerpoint|ppt)$/.test(v)) return / (pptx|ppt|odp) /.test(m.ak);
+      if (/^(zip|comprimido)$/.test(v)) return m.ak.includes(' zip ');
+      if (/^(eml|mensaje)$/.test(v)) return m.ak.includes(' eml ');
+      return m.nA.includes(v);
     }
-    case 'after': { const d = parseQDate(t.val); return d === null ? true : m.date >= d; }
-    case 'before': { const d = parseQDate(t.val); return d === null ? true : (m.date && m.date < d); }
+    case 'after': { const d = parseQDate(t.val); return d === null ? true : m.d >= d; }
+    case 'before': { const d = parseQDate(t.val); return d === null ? true : (m.d && m.d < d); }
     case 'larger': { const s = parseQSize(t.val); return s === null ? true : m.size > s; }
     case 'smaller': { const s = parseQSize(t.val); return s === null ? true : m.size < s; }
-    default: return m.nSubj.includes(v) || m.nFrom.includes(v) || m.nTo.includes(v) || m.nCc.includes(v) || m.nBody.includes(v) || m.nAtt.includes(v) || m.nBcc.includes(v);
+    default: return m.nS.includes(v) || m.nF.includes(v) || m.nT.includes(v) || m.nA.includes(v) || !!bodyHas(m, v);
   }
 }
 function matchQuery(m, groups) { for (const g of groups) { if (!g.some(t => termMatch(m, t) !== t.neg)) return false; } return true; }
 
+/* La búsqueda en el texto de los mensajes se hace en segundo plano, sobre el índice guardado */
+function bodyTermsOf(groups) {
+  const set = new Set();
+  for (const g of groups) for (const t of g) if ((!t.field || t.field === 'body') && t.nv.length >= 2) set.add(t.nv);
+  return [...set].slice(0, 16);
+}
+function startBodyScan() {
+  const B = APP.body;
+  B.qid++; B.masks = {}; B.pct = 0;
+  const keys = APP.files.filter(f => f.count > 0).map(f => f.key);
+  B.pending = B.terms.length > 0 && keys.length > 0;
+  if (B.pending) worker.postMessage({ cmd: 'scan', qid: B.qid, keys, terms: B.terms });
+}
+function ensureBodyScan(groups) {
+  const terms = bodyTermsOf(groups), sig = terms.join('\u0001');
+  if (sig === APP.body.sig) return;
+  APP.body.sig = sig; APP.body.terms = terms; APP.body.idx = {};
+  terms.forEach((t, i) => APP.body.idx[t] = i);
+  startBodyScan();
+}
+
 function applyFilters(keepSel) {
   const groups = parseQuery(APP.query);
-  const q = APP.quick;
+  ensureBodyScan(groups);
+  const q = APP.quick, M = APP.msgs, O = APP.order;
   const prevId = APP.sel >= 0 ? APP.view[APP.sel] : -1;
   const out = [];
-  for (const m of APP.msgs) {
-    if (q.type === 'att' && !m.atts.length) continue;
+  for (let i = 0; i < O.length; i++) {
+    const m = M[O[i]];
+    if (q.type === 'att' && !m.na) continue;
     if (q.type === 'file' && m.f !== q.val) continue;
-    if (q.type === 'label' && !m.labels.includes(q.val)) continue;
+    if (q.type === 'label' && !m.lb.includes(q.val)) continue;
     if (groups.length && !matchQuery(m, groups)) continue;
-    out.push(m.id);
+    out.push(O[i]);
   }
-  const M = APP.msgs, s = APP.sort;
-  const cmpS = (a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' });
-  out.sort((a, b) => {
-    const x = M[a], y = M[b];
-    if (s === 'date-asc') return x.date - y.date || a - b;
-    if (s === 'from') return cmpS(x.from.name || x.from.addr, y.from.name || y.from.addr) || y.date - x.date;
-    if (s === 'subj') return cmpS(x.subj.replace(/^((re|rv|fw|fwd|reenviar|respuesta)\s*:\s*)+/i, ''), y.subj.replace(/^((re|rv|fw|fwd|reenviar|respuesta)\s*:\s*)+/i, '')) || y.date - x.date;
-    if (s === 'size') return y.size - x.size;
-    return y.date - x.date || b - a;
-  });
   APP.view = out;
   APP.sel = keepSel && prevId >= 0 ? out.indexOf(prevId) : -1;
   if (!keepSel) $('#list').scrollTop = 0;
@@ -875,31 +602,67 @@ const LCOL = ['#6d1022', '#b8860b', '#1f5fbf', '#1d7a43', '#7b3fa6', '#d4561c', 
 function colorFor(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return LCOL[Math.abs(h) % LCOL.length]; }
 function initial(a) { const s = (a.name || a.addr || '?').replace(/^["'\s]+/, ''); return esc((s[0] || '?').toUpperCase()); }
 
+function fileStatus(f) {
+  if (f.state === 'indexing' || f.state === 'queued' || f.state === 'paused' || f.state === 'error') {
+    const pct = f.size ? Math.min(100, 100 * (f.bytes || 0) / f.size) : 0;
+    let txt;
+    if (f.state === 'queued') txt = 'En espera para indexar…';
+    else if (f.state === 'paused') txt = 'Indexación detenida en ' + pct.toFixed(0) + '%';
+    else if (f.state === 'error') txt = 'Error: ' + esc(f.err || '');
+    else txt = 'Indexando ' + pct.toFixed(pct < 10 ? 1 : 0) + '%' + (f.rate > 0 ? ' · faltan ' + fmtDur((f.size - f.bytes) / f.rate) : '');
+    const btn = f.state === 'indexing' || f.state === 'queued' ? '<button class="lnk" data-act="stop" data-v="' + APP.keyIdx[f.key] + '">Detener</button>'
+      : f.state === 'paused' || f.state === 'error' ? '<button class="lnk" data-act="resume" data-v="' + APP.keyIdx[f.key] + '">Continuar</button>' : '';
+    return '<div class="fprog"><div class="pbar"><i style="width:' + pct.toFixed(1) + '%"></i></div><div class="ftxt">' + txt + ' ' + btn + '</div></div>';
+  }
+  return '';
+}
 function rebuildSide() {
-  const q = APP.quick, total = APP.msgs.length, withAtt = APP.msgs.reduce((a, m) => a + (m.atts.length ? 1 : 0), 0);
+  const q = APP.quick, total = APP.msgs.length;
   let h = '<div class="navh">Vistas</div>';
   h += '<div class="nav' + (q.type === 'all' ? ' on' : '') + '" data-q="all">' + IC.inbox + '<span class="t">Todos los mensajes</span><span class="c">' + fmtNum(total) + '</span></div>';
-  h += '<div class="nav' + (q.type === 'att' ? ' on' : '') + '" data-q="att">' + IC.clip + '<span class="t">Con adjuntos</span><span class="c">' + fmtNum(withAtt) + '</span></div>';
+  h += '<div class="nav' + (q.type === 'att' ? ' on' : '') + '" data-q="att">' + IC.clip + '<span class="t">Con adjuntos</span><span class="c">' + fmtNum(APP.withAtt) + '</span></div>';
   h += '<div class="navh">Archivos abiertos</div>';
-  APP.files.forEach((f, i) => { h += '<div class="nav' + (q.type === 'file' && q.val === i ? ' on' : '') + '" data-q="file" data-v="' + i + '" title="' + esc(f.name + ' · ' + fmtSize(f.size)) + '">' + IC.file + '<span class="t">' + esc(f.name) + '</span><span class="c">' + fmtNum(f.count) + '</span></div>'; });
-  h += '<div class="nav" data-act="add" style="color:var(--g)">' + IC.plus + '<span class="t">Agregar archivos…</span></div>';
-  if (APP.files.length) h += '<div class="nav" data-act="close" style="color:var(--mut)">' + IC.trash + '<span class="t">Cerrar todo</span></div>';
+  APP.files.forEach((f, i) => {
+    h += '<div class="nav' + (q.type === 'file' && q.val === i ? ' on' : '') + '" data-q="file" data-v="' + i + '" title="' + esc(f.name + ' · ' + fmtSize(f.size)) + '">' + IC.file + '<span class="t">' + esc(f.name) + '</span><span class="c">' + fmtNum(f.count) + '</span></div>' + fileStatus(f);
+  });
+  h += '<div class="nav" data-act="add" style="color:var(--g)">' + IC.plus + '<span class="t">Abrir otro archivo…</span></div>';
+  if (APP.files.length) h += '<div class="nav" data-act="close" style="color:var(--mut)">' + IC.x + '<span class="t">Cerrar archivos</span></div>';
   if (APP.labels.size) {
+    const L = [...APP.labels.entries()].sort((a, b) => b[1] - a[1]);
     h += '<div class="navh">Etiquetas</div>';
-    [...APP.labels.entries()].sort((a, b) => b[1] - a[1]).forEach(([l, c]) => {
+    L.slice(0, APP.allLabels ? L.length : 25).forEach(([l, c]) => {
       h += '<div class="nav' + (q.type === 'label' && q.val === l ? ' on' : '') + '" data-q="label" data-v="' + esc(l) + '" title="' + esc(l) + '"><span class="dot" style="background:' + colorFor(l) + '"></span><span class="t">' + esc(l) + '</span><span class="c">' + fmtNum(c) + '</span></div>';
     });
+    if (L.length > 25) h += '<div class="nav" data-act="labels" style="color:var(--mut)"><span class="t">' + (APP.allLabels ? 'Ver menos' : 'Ver todas (' + L.length + ')') + '</span></div>';
   }
-  h += '<div class="side-note">Consejo: usa el botón de filtros junto al buscador para buscar por remitente, fecha o adjuntos.</div>';
+  const saved = APP.saved.filter(s => APP.keyIdx[s.key] === undefined);
+  if (saved.length) {
+    h += '<div class="navh">Índices guardados en este equipo</div>';
+    saved.sort((a, b) => b.updated - a.updated).forEach(s => {
+      h += '<div class="nav saved" data-act="saved" data-k="' + esc(s.key) + '" title="Abrir ' + esc(s.name) + ' (' + fmtSize(s.size) + ')">' + IC.file + '<span class="t">' + esc(s.name) + '<small>' + fmtNum(s.count) + ' mensajes' + (s.complete ? '' : ' · incompleto') + '</small></span>'
+        + '<button class="iconbtn del" data-act="delsaved" data-k="' + esc(s.key) + '" title="Borrar este índice">' + IC.trash + '</button></div>';
+    });
+  }
+  if (APP.usage && APP.usage.usage > 5e6) h += '<div class="side-note">Espacio usado por los índices: ' + fmtSize(APP.usage.usage) + '</div>';
+  h += '<div class="side-note">Los archivos grandes se indexan una sola vez; la siguiente vez abren al instante.</div>';
   $('#side').innerHTML = h;
-  // selects de búsqueda avanzada
+  $('#wSaved').innerHTML = saved.length ? '<div class="wsaved"><div class="wsh">Archivos que ya abriste en este equipo</div>' + saved.slice(0, 5).map(s => '<button class="wsi" data-k="' + esc(s.key) + '">' + IC.file + '<span><b>' + esc(s.name) + '</b><small>' + fmtNum(s.count) + ' mensajes · ' + fmtSize(s.size) + (s.complete ? '' : ' · indexación incompleta') + '</small></span></button>').join('') + '</div>' : '';
   $('#aLabel').innerHTML = '<option value="">Cualquiera</option>' + [...APP.labels.keys()].sort().map(l => '<option>' + esc(l) + '</option>').join('');
   $('#aMbox').innerHTML = '<option value="">Todos</option>' + APP.files.map(f => '<option>' + esc(f.name) + '</option>').join('');
 }
 $('#side').addEventListener('click', e => {
-  const n = e.target.closest('.nav'); if (!n) return;
-  if (n.dataset.act === 'add') return $('#file').click();
-  if (n.dataset.act === 'close') return closeAll();
+  const b = e.target.closest('[data-act]');
+  if (b) {
+    const a = b.dataset.act; e.stopPropagation();
+    if (a === 'add') return pickFiles();
+    if (a === 'close') return closeFiles();
+    if (a === 'labels') { APP.allLabels = !APP.allLabels; return rebuildSide(); }
+    if (a === 'stop') { const f = APP.files[+b.dataset.v]; worker.postMessage({ cmd: 'stop', key: f.key }); return; }
+    if (a === 'resume') { const f = APP.files[+b.dataset.v]; f.state = 'queued'; worker.postMessage({ cmd: 'resume', key: f.key, file: f.file }); return rebuildSide(); }
+    if (a === 'saved') { const s = APP.saved.find(x => x.key === b.dataset.k); if (s) openSaved(s); return; }
+    if (a === 'delsaved') { const s = APP.saved.find(x => x.key === b.dataset.k); if (s && confirm('¿Borrar el índice de «' + s.name + '»? El archivo .mbox no se borra; solo tendrás que volver a indexarlo.')) worker.postMessage({ cmd: 'delete', key: s.key }); return; }
+  }
+  const n = e.target.closest('.nav[data-q]'); if (!n) return;
   const t = n.dataset.q; APP.quick = { type: t, val: t === 'file' ? +n.dataset.v : n.dataset.v };
   rebuildSide(); applyFilters(false);
 });
@@ -907,28 +670,35 @@ $('#side').addEventListener('click', e => {
 function updateCounts() {
   const n = APP.view.length, t = APP.msgs.length;
   let lbl = n === t ? fmtNum(t) + ' mensajes' : fmtNum(n) + ' de ' + fmtNum(t) + ' mensajes';
+  if (APP.body.pending) lbl += ' · buscando en el texto ' + Math.round(100 * APP.body.pct) + '%';
   $('#cnt').textContent = t ? lbl : '—';
+  const idx = APP.files.filter(f => f.state === 'indexing');
   $('#stFiles').textContent = APP.files.length ? APP.files.length + (APP.files.length === 1 ? ' archivo' : ' archivos') + ' · ' + fmtSize(APP.files.reduce((a, f) => a + f.size, 0)) : 'Sin archivos abiertos';
-  $('#stIdx').textContent = t ? fmtNum(t) + ' mensajes' : '';
+  $('#stIdx').textContent = idx.length ? 'Indexando… ' + fmtNum(t) + ' mensajes listos' : (t ? fmtNum(t) + ' mensajes' : '');
 }
 
 function renderList() {
   const L = $('#list'), R = $('#rows');
-  if (!APP.view.length) { R.style.height = 'auto'; R.style.transform = ''; R.innerHTML = APP.msgs.length ? '<div class="noresults">No hay mensajes que coincidan con la búsqueda.</div>' : ''; return; }
+  if (!APP.view.length) {
+    R.style.height = 'auto';
+    R.innerHTML = APP.msgs.length ? '<div class="noresults">' + (APP.body.pending ? 'Buscando…' : 'No hay mensajes que coincidan con la búsqueda.') + '</div>'
+      : (APP.files.some(f => f.state !== 'ready') ? '<div class="noresults">Leyendo el archivo… los mensajes aparecerán aquí en unos segundos.</div>' : '');
+    return;
+  }
   const top = L.scrollTop, h = L.clientHeight || 600;
   const a = Math.max(0, Math.floor(top / ROW) - 6), b = Math.min(APP.view.length, Math.ceil((top + h) / ROW) + 6);
   let html = '';
   for (let i = a; i < b; i++) {
     const m = APP.msgs[APP.view[i]];
-    const who = m.from.name || m.from.addr || '(sin remitente)';
-    html += '<div class="row' + (i === APP.sel ? ' sel' : '') + '" data-i="' + i + '" style="position:absolute;left:0;right:0;top:' + (i * ROW) + 'px" title="' + esc(m.from.addr) + '">'
-      + '<div class="av" style="background:' + colorFor(m.from.addr || who) + '">' + initial(m.from) + '</div>'
+    const who = m.fn || m.fa || '(sin remitente)';
+    html += '<div class="row' + (i === APP.sel ? ' sel' : '') + '" data-i="' + i + '" style="position:absolute;left:0;right:0;top:' + (i * ROW) + 'px" title="' + esc(m.fa) + '">'
+      + '<div class="av" style="background:' + colorFor(m.fa || who) + '">' + initial({ name: m.fn, addr: m.fa }) + '</div>'
       + '<div class="r-from">' + esc(who) + '</div>'
-      + '<div class="r-meta">' + (m.atts.length ? IC.clip : '') + '<span title="' + esc(m.date ? DF_ROW.format(new Date(m.date)) : '') + '">' + listDate(m.date) + '</span></div>'
-      + '<div class="r-subj">' + esc(m.subj || '(sin asunto)') + '</div>'
-      + '<div class="r-snip">' + esc(m.snip || '') + '</div></div>';
+      + '<div class="r-meta">' + (m.na ? IC.clip : '') + '<span title="' + esc(m.d ? DF_ROW.format(new Date(m.d)) : '') + '">' + listDate(m.d) + '</span></div>'
+      + '<div class="r-subj">' + esc(m.su || '(sin asunto)') + '</div>'
+      + '<div class="r-snip">' + esc(m.sn || '') + '</div></div>';
   }
-  R.style.height = (APP.view.length * ROW) + 'px'; R.style.transform = '';
+  R.style.height = (APP.view.length * ROW) + 'px';
   R.innerHTML = html;
 }
 $('#list').addEventListener('scroll', () => requestAnimationFrame(renderList));
@@ -1439,7 +1209,8 @@ function showHelp() {
       + r('<code>-palabra</code>', 'Excluye mensajes que contienen esa palabra')
       + '</table><h3>Teclado</h3><table>'
       + r('<kbd>↑</kbd> <kbd>↓</kbd>', 'Mensaje anterior / siguiente') + r('<kbd>/</kbd>', 'Ir al buscador') + r('<kbd>Esc</kbd>', 'Cerrar la vista de un adjunto')
-      + '</table><h3>Privacidad</h3><p>Tus archivos se abren directamente desde tu equipo y no se suben a internet. Las imágenes externas de los correos quedan bloqueadas hasta que pulses <b>Mostrar imágenes</b>.</p>'
+      + '</table><h3>Archivos grandes</h3><p>La primera vez que abres un archivo, el lector lo <b>indexa</b> (lo revisa completo). En archivos muy grandes, como un respaldo de Google Takeout, puede tardar desde varios minutos hasta más de media hora. Mientras tanto <b>ya puedes leer</b> los mensajes que van apareciendo. Si cierras la ventana, la próxima vez continúa donde se quedó. Cuando termina, el índice queda guardado en este equipo y el archivo abre al instante.</p><p>En archivos de más de 1.5 GB, la búsqueda en el texto revisa el inicio de cada correo.</p>'
+      + '<h3>Privacidad</h3><p>Tus archivos se abren directamente desde tu equipo y no se suben a internet. Las imágenes externas de los correos quedan bloqueadas hasta que pulses <b>Mostrar imágenes</b>.</p>'
       + '<h3>Adjuntos que se pueden ver</h3><p>PDF, imágenes, Word, Excel, PowerPoint (solo texto), texto, CSV, audio, video, ZIP (lista de contenido) y correos adjuntos. Los demás se pueden descargar y abrir con su programa.</p></div>'
   });
 }
@@ -1448,18 +1219,12 @@ function showHelp() {
    EVENTOS GENERALES
    ===================================================================== */
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.add('hidden'), 3800); }
-function closeAll() {
-  if (!confirm('¿Cerrar todos los archivos abiertos?')) return;
-  APP.files = []; APP.msgs = []; APP.view = []; APP.sel = -1; APP.labels = new Map(); APP.totalBytes = 0; APP.quick = { type: 'all' }; APP.remoteOk.clear();
-  revokeAll(); $('#reader').innerHTML = '<div class="empty"><p>Selecciona un mensaje para leerlo</p></div>';
-  $('#welcome').classList.remove('hidden'); rebuildSide(); applyFilters(false);
-}
-$('#bOpen').onclick = () => $('#file').click();
-$('#bOpen2').onclick = () => $('#file').click();
-$('#file').onchange = e => { const f = e.target.files; loadFiles(f); e.target.value = ''; };
-$('#pCancel').onclick = () => { APP.cancel = true; };
+$('#bOpen').onclick = pickFiles;
+$('#bOpen2').onclick = pickFiles;
+$('#wSaved').addEventListener('click', e => { const b = e.target.closest('.wsi'); if (!b) return; const s = APP.saved.find(x => x.key === b.dataset.k); if (s) openSaved(s); });
+$('#file').onchange = e => { openEntries([...e.target.files].map(file => ({ file }))); e.target.value = ''; };
 $('#bHelp').onclick = showHelp;
-$('#sort').onchange = e => { APP.sort = e.target.value; applyFilters(true); };
+$('#sort').onchange = e => { APP.sort = e.target.value; resort(); applyFilters(true); };
 
 let qT;
 $('#q').addEventListener('input', e => {
@@ -1523,7 +1288,14 @@ let dragN = 0;
 window.addEventListener('dragenter', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { dragN++; $('#drop').classList.remove('hidden'); } });
 window.addEventListener('dragleave', () => { dragN = Math.max(0, dragN - 1); if (!dragN) $('#drop').classList.add('hidden'); });
 window.addEventListener('dragover', e => e.preventDefault());
-window.addEventListener('drop', e => { e.preventDefault(); dragN = 0; $('#drop').classList.add('hidden'); if (e.dataTransfer.files.length) loadFiles(e.dataTransfer.files); });
+window.addEventListener('drop', async e => {
+  e.preventDefault(); dragN = 0; $('#drop').classList.add('hidden');
+  const files = [...e.dataTransfer.files]; if (!files.length) return;
+  const hp = [...e.dataTransfer.items].filter(i => i.kind === 'file').map(i => i.getAsFileSystemHandle ? i.getAsFileSystemHandle().catch(() => null) : null);
+  const hs = await Promise.all(hp);
+  openEntries(files.map((file, k) => ({ file, handle: hs[k] && hs[k].kind === 'file' ? hs[k] : null })));
+});
+window.addEventListener('beforeunload', e => { if (APP.files.some(f => f.state === 'indexing')) { e.preventDefault(); e.returnValue = ''; } });
 
 /* paneles redimensionables y distribución */
 const main = $('#main');
@@ -1560,7 +1332,7 @@ dragSplit($('#sp1'), 'sp1'); dragSplit($('#sp2'), 'sp2');
 
 /* inicio */
 document.title = CONFIG.titulo; $('#appTitle').textContent = CONFIG.titulo; $('#appOrg').textContent = CONFIG.organizacion;
-applyLayout(); rebuildSide(); updateCounts();
+applyLayout(); rebuildSide(); updateCounts(); refreshSaved();
 $('#stVer').textContent = 'v' + CONFIG.version;
 
 /* =====================================================================
@@ -1576,8 +1348,7 @@ window.addEventListener('appinstalled', () => { $('#bInstall').classList.add('hi
 if ('launchQueue' in window) {
   window.launchQueue.setConsumer(async params => {
     if (!params.files || !params.files.length) return;
-    const files = await Promise.all(params.files.map(h => h.getFile()));
-    loadFiles(files);
+    openEntries(await Promise.all(params.files.map(async h => ({ file: await h.getFile(), handle: h }))));
   });
 }
 </script>
