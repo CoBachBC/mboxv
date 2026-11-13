@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob: https: http:; manifest-src 'self'; worker-src 'self'; connect-src 'self'; media-src data: blob:; frame-src blob: data: about:; object-src blob:; font-src data:; base-uri 'none'; form-action 'none'">
+<title>Lector MBOX</title>
+<meta name="theme-color" content="#6d1022">
+<meta name="description" content="Consulta archivos de correo .mbox y .eml sin instalar programas. Todo se procesa en tu equipo.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<!--
+  Lector MBOX (PWA) — se instala desde GitHub Pages y funciona sin conexión.
+  Todo el procesamiento ocurre en el navegador del equipo; ningún dato sale de la máquina.
+  Navegadores recomendados: Google Chrome o Microsoft Edge actualizados.
+-->
+<style>
+:root{
+  --g:#6d1022;--g2:#8f1d33;--gold:#b8860b;--bg:#f4f2f0;--panel:#fff;--line:#e4dfdb;
+  --txt:#1f1d1b;--mut:#6c6661;--sel:#f8e8eb;--hov:#f7f4f2;
+  --sw:220px;--lw:430px;--lh:42%;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:14px/1.4 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;color:var(--txt);background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+button{font:inherit;cursor:pointer;color:inherit}
+input,select{font:inherit;color:var(--txt)}
+svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.hidden{display:none!important}
+
+/* ---------- barra superior ---------- */
+.top{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--g);color:#fff;flex:0 0 auto;position:relative;z-index:20}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;white-space:nowrap;margin-right:6px}
+.brand .logo{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.14);display:grid;place-items:center}
+.brand small{display:block;font-weight:400;opacity:.78;font-size:11px;letter-spacing:.03em}
+.search{flex:1;max-width:780px;display:flex;align-items:center;background:#fff;border-radius:8px;padding:0 4px 0 10px;height:38px;color:var(--mut);position:relative}
+.search input{flex:1;border:0;outline:0;font-size:15px;height:100%;background:transparent;padding:0 8px;min-width:0}
+.iconbtn{background:transparent;border:0;width:34px;height:34px;border-radius:8px;display:inline-grid;place-items:center;flex:0 0 auto}
+.iconbtn:hover{background:rgba(0,0,0,.07)}
+.top .iconbtn:hover{background:rgba(255,255,255,.16)}
+.iconbtn.on{background:rgba(0,0,0,.09)}
+.top .spacer{flex:1}
+.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.btn:hover{border-color:#c9c1bb;background:#fbfaf9}
+.btn.primary{background:var(--g);border-color:var(--g);color:#fff}
+.btn.primary:hover{background:var(--g2)}
+.top .btn{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.28);color:#fff}
+.top .btn:hover{background:rgba(255,255,255,.2)}
+.btn.sm{padding:4px 9px;font-size:13px}
+
+/* ---------- búsqueda avanzada ---------- */
+.adv{position:absolute;top:44px;left:0;width:min(680px,92vw);background:#fff;color:var(--txt);border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:18px 20px;z-index:30}
+.adv .grid{display:grid;grid-template-columns:150px 1fr;gap:9px 14px;align-items:center}
+.adv label{color:var(--mut);font-size:13px}
+.adv input[type=text],.adv input[type=number],.adv input[type=date],.adv select{border:0;border-bottom:1px solid #cfc8c2;padding:5px 2px;outline:0;width:100%;background:transparent}
+.adv input:focus{border-bottom-color:var(--g)}
+.adv .inline{display:flex;gap:8px;align-items:center}
+.adv .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.adv h3{margin:0 0 12px;font-size:15px}
+
+/* ---------- distribución en paneles ---------- */
+main{flex:1;min-height:0;display:grid;position:relative}
+main.cols{grid-template-columns:var(--sw) 5px var(--lw) 5px minmax(320px,1fr);grid-template-rows:minmax(0,1fr)}
+main.cols #side{grid-column:1;grid-row:1}
+main.cols #sp1{grid-column:2;grid-row:1}
+main.cols #listPane{grid-column:3;grid-row:1}
+main.cols #sp2{grid-column:4;grid-row:1}
+main.cols #reader{grid-column:5;grid-row:1}
+main.rows{grid-template-columns:var(--sw) 5px minmax(0,1fr);grid-template-rows:var(--lh) 5px minmax(0,1fr)}
+main.rows #side{grid-column:1;grid-row:1/4}
+main.rows #sp1{grid-column:2;grid-row:1/4}
+main.rows #listPane{grid-column:3;grid-row:1}
+main.rows #sp2{grid-column:3;grid-row:2;cursor:row-resize}
+main.rows #reader{grid-column:3;grid-row:3}
+main.noside{--sw:0px}
+main.noside #side,main.noside #sp1{visibility:hidden}
+.split{background:var(--line);cursor:col-resize;z-index:2}
+.split:hover,.split.drag{background:var(--g2)}
+
+/* ---------- panel lateral ---------- */
+#side{background:#faf8f6;overflow:auto;padding:8px 6px 16px;min-width:0}
+.navh{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:14px 10px 6px;font-weight:600}
+.nav{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;cursor:pointer;white-space:nowrap;min-width:0}
+.nav span.t{overflow:hidden;text-overflow:ellipsis}
+.nav .c{margin-left:auto;font-size:12px;color:var(--mut);padding-left:6px}
+.nav:hover{background:var(--hov)}
+.nav.on{background:var(--sel);color:var(--g);font-weight:600}
+.nav.on .c{color:var(--g)}
+.nav svg{width:16px;height:16px}
+.nav .dot{width:9px;height:9px;border-radius:3px;flex:0 0 auto}
+.side-note{margin:16px 10px 0;font-size:11.5px;color:var(--mut);line-height:1.45}
+
+/* ---------- lista ---------- */
+#listPane{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--panel)}
+.ltool{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--line);font-size:13px;color:var(--mut);flex:0 0 auto}
+.ltool .cnt{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+select.sm{border:1px solid var(--line);border-radius:6px;padding:3px 6px;background:#fff;font-size:13px}
+#list{flex:1;overflow:auto;position:relative;outline:none}
+#rows{position:absolute;left:0;right:0;top:0}
+.row{height:72px;padding:9px 12px 8px 10px;border-bottom:1px solid #efebe8;display:grid;grid-template-columns:34px minmax(0,1fr) auto;grid-template-rows:auto auto auto;column-gap:10px;cursor:pointer;overflow:hidden}
+.row:hover{background:var(--hov)}
+.row.sel{background:var(--sel);box-shadow:inset 3px 0 var(--g)}
+.av{grid-row:1/4;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:600;font-size:13px;margin-top:2px}
+.r-from{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r-meta{font-size:12px;color:var(--mut);white-space:nowrap;display:flex;gap:4px;align-items:center}
+.r-meta svg{width:14px;height:14px}
+.r-subj{grid-column:2/4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r-snip{grid-column:2/4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut);font-size:12.5px}
+.noresults{padding:40px 20px;text-align:center;color:var(--mut)}
+
+/* ---------- lector ---------- */
+#reader{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--panel)}
+.msg{display:flex;flex-direction:column;flex:1;min-height:0}
+.mhead{padding:14px 20px 10px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.mtools{display:flex;gap:6px;justify-content:flex-end;margin-bottom:6px;flex-wrap:wrap}
+.msubj{font-size:20px;font-weight:600;margin:0 0 10px;word-break:break-word;line-height:1.3}
+.mfrom{display:grid;grid-template-columns:40px 1fr auto;gap:2px 12px;align-items:center}
+.mfrom .av{grid-row:1/3;width:40px;height:40px;font-size:16px;margin:0}
+.mfrom .nm{font-weight:600}
+.mfrom .ad{color:var(--mut);font-weight:400}
+.mfrom .dt{color:var(--mut);font-size:12.5px;white-space:nowrap;text-align:right}
+.mfrom .to{color:var(--mut);font-size:13px;grid-column:2/4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.chip{font-size:11.5px;background:#f1ece8;border-radius:4px;padding:2px 7px;color:#4d4641}
+details.det{margin-top:8px;font-size:13px}
+details.det summary{cursor:pointer;color:var(--g);user-select:none;width:max-content}
+table.kv{border-collapse:collapse;margin-top:8px;width:100%}
+table.kv td{padding:3px 8px 3px 0;vertical-align:top;word-break:break-word}
+table.kv td:first-child{color:var(--mut);white-space:nowrap;width:110px}
+.banner{background:#fff6dc;border-bottom:1px solid #eedca6;padding:7px 20px;font-size:13px;display:flex;gap:10px;align-items:center;flex:0 0 auto}
+.atts{display:flex;flex-wrap:wrap;gap:8px;padding:10px 20px;border-bottom:1px solid var(--line);background:#fcfbfa;flex:0 0 auto;max-height:30%;overflow:auto}
+.atts .lbl{width:100%;font-size:12px;color:var(--mut);display:flex;gap:6px;align-items:center}
+.att{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:5px 6px 5px 6px;max-width:280px;cursor:pointer;text-align:left}
+.att:hover{border-color:var(--g2);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.att .info{min-width:0;display:flex;flex-direction:column}
+.att .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.att .sz{font-size:11px;color:var(--mut)}
+.att .dl{opacity:.55;border-radius:6px;width:28px;height:28px}
+.att .dl:hover{opacity:1;background:var(--hov)}
+.badge{font-size:10px;font-weight:700;color:#fff;border-radius:5px;width:36px;height:36px;display:grid;place-items:center;flex:0 0 auto;letter-spacing:.02em}
+.thumb{width:36px;height:36px;object-fit:cover;border-radius:5px;flex:0 0 auto;background:#eee}
+.mframe{flex:1;border:0;width:100%;min-height:120px;background:#fff;display:block}
+.empty{margin:auto;text-align:center;color:var(--mut);padding:30px}
+.empty svg{width:56px;height:56px;stroke-width:1.2;opacity:.45}
+
+/* ---------- bienvenida / arrastrar ---------- */
+#welcome{position:absolute;inset:0;background:var(--bg);display:grid;place-items:center;z-index:5;padding:20px;overflow:auto}
+.wcard{background:#fff;border-radius:16px;box-shadow:0 6px 30px rgba(60,20,30,.08);padding:34px 38px;max-width:640px;width:100%;text-align:center}
+.wcard h1{margin:6px 0 6px;font-size:24px;color:var(--g)}
+.wcard p{color:var(--mut);margin:6px 0}
+.dropzone{border:2px dashed #d6ccc6;border-radius:12px;padding:26px;margin:20px 0 16px;transition:.15s}
+.dropzone.over,#drop.over .dropzone{border-color:var(--g);background:var(--sel)}
+.feat{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;text-align:left;font-size:13px;color:var(--mut);margin-top:18px}
+.feat div{display:flex;gap:8px;align-items:flex-start}
+.feat svg{width:16px;height:16px;color:var(--g);margin-top:1px}
+.privacy{margin-top:18px;font-size:12px;color:var(--mut);display:flex;gap:6px;justify-content:center;align-items:center}
+#drop{position:fixed;inset:0;background:rgba(109,16,34,.82);color:#fff;display:grid;place-items:center;z-index:60;font-size:22px;font-weight:600;pointer-events:none}
+
+/* ---------- progreso ---------- */
+#prog{position:fixed;inset:0;background:rgba(30,20,22,.45);display:grid;place-items:center;z-index:70}
+.pcard{background:#fff;border-radius:14px;padding:24px 28px;width:min(460px,92vw);box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.pcard h3{margin:0 0 4px;font-size:16px}
+.pbar{height:8px;background:#eee;border-radius:5px;overflow:hidden;margin:14px 0 8px}
+.pbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--g),var(--g2));transition:width .2s}
+.ptxt{font-size:13px;color:var(--mut);min-height:18px}
+
+/* ---------- modal de vista previa ---------- */
+#modal{position:fixed;inset:0;background:rgba(25,15,18,.66);z-index:50}
+.mbox{position:absolute;inset:3vh 3vw;background:#fff;border-radius:12px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.mbar{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 14px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.mbar .ttl{flex:1;min-width:0}
+.mbar .ttl b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mbar .ttl small{color:var(--mut)}
+.mbody{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;background:#fff}
+.mbody>iframe,.mbody>embed,.mbody>object{flex:1;border:0;width:100%;min-height:0}
+.imgwrap{flex:1;display:grid;place-items:center;background:#2a2627;overflow:auto;cursor:zoom-in;min-height:0}
+.imgwrap img{max-width:100%;max-height:100%;display:block}
+.imgwrap.zoom{cursor:zoom-out;place-items:start}
+.imgwrap.zoom img{max-width:none;max-height:none}
+pre.txt{margin:0;padding:16px 18px;white-space:pre-wrap;word-break:break-word;font:13px/1.5 Consolas,ui-monospace,Menlo,monospace;flex:1}
+.nopv{margin:auto;text-align:center;color:var(--mut);padding:40px}
+.nopv .badge{width:64px;height:64px;font-size:15px;margin:0 auto 14px;border-radius:10px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:6px 10px 0;flex:0 0 auto;overflow-x:auto;background:#faf8f6}
+.tabs button{border:1px solid transparent;border-bottom:0;background:transparent;padding:6px 12px;border-radius:7px 7px 0 0;white-space:nowrap;font-size:13px}
+.tabs button.on{background:#fff;border-color:var(--line);color:var(--g);font-weight:600;margin-bottom:-1px}
+.sheet{flex:1;overflow:auto;min-height:0}
+table.grid{border-collapse:collapse;font-size:12.5px}
+table.grid td,table.grid th{border:1px solid #e1dcd8;padding:3px 7px;white-space:pre;max-width:460px;overflow:hidden;text-overflow:ellipsis;vertical-align:top}
+table.grid th{background:#f4f1ee;position:sticky;top:0;font-weight:600;color:#5b5550;z-index:1}
+table.grid td.rn{background:#f4f1ee;color:#5b5550;text-align:right;position:sticky;left:0}
+.note{font-size:12px;color:var(--mut);padding:8px 14px;border-top:1px solid var(--line);background:#fcfbfa;flex:0 0 auto}
+.slides{padding:18px;display:grid;gap:14px;background:#f2efec;flex:1}
+.slide{background:#fff;border-radius:8px;padding:16px 20px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.slide h4{margin:0 0 8px;color:var(--g);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.slide p{margin:4px 0}
+.nested{flex:1;display:flex;flex-direction:column;min-height:0}
+
+/* ---------- ayuda ---------- */
+.help{padding:20px 26px;overflow:auto}
+.help h2{margin:0 0 6px;color:var(--g);font-size:18px}
+.help h3{margin:18px 0 8px;font-size:14px}
+.help table{border-collapse:collapse;width:100%;font-size:13px}
+.help td{border-bottom:1px solid #eee;padding:6px 8px;vertical-align:top}
+.help code,.help kbd{background:#f3efec;border-radius:4px;padding:1px 6px;font:12.5px Consolas,monospace;white-space:nowrap}
+
+footer#status{flex:0 0 auto;padding:4px 14px;font-size:12px;color:var(--mut);background:#fff;border-top:1px solid var(--line);display:flex;gap:18px;align-items:center;white-space:nowrap;overflow:hidden}
+footer#status .ok{display:flex;gap:5px;align-items:center;margin-left:auto}
+footer#status svg{width:13px;height:13px}
+#toast{position:fixed;bottom:34px;left:50%;transform:translateX(-50%);background:#2a2324;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;z-index:90;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <button class="iconbtn" id="bSide" title="Mostrar u ocultar panel lateral"><svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+  <div class="brand">
+    <div class="logo"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div>
+    <div><span id="appTitle">Lector MBOX</span><small id="appOrg"></small></div>
+  </div>
+  <div class="search" id="searchBox">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="text" placeholder="Buscar en el correo" autocomplete="off" spellcheck="false">
+    <button class="iconbtn hidden" id="bClear" title="Limpiar búsqueda"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <button class="iconbtn" id="bAdv" title="Búsqueda avanzada"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></button>
+    <div class="adv hidden" id="adv">
+      <h3>Búsqueda avanzada</h3>
+      <div class="grid">
+        <label for="aFrom">De</label><input type="text" id="aFrom">
+        <label for="aTo">Para (incluye CC/CCO)</label><input type="text" id="aTo">
+        <label for="aSubj">Asunto</label><input type="text" id="aSubj">
+        <label for="aHas">Contiene las palabras</label><input type="text" id="aHas">
+        <label for="aNot">No contiene</label><input type="text" id="aNot">
+        <label for="aFile">Nombre de adjunto</label><input type="text" id="aFile">
+        <label>Tamaño</label>
+        <div class="inline"><select id="aSizeOp"><option value="larger">mayor que</option><option value="smaller">menor que</option></select><input type="number" id="aSize" min="0" step="0.1" style="width:90px"><select id="aSizeU"><option value="M">MB</option><option value="K">KB</option></select></div>
+        <label>Fecha</label>
+        <div class="inline"><span style="color:var(--mut);font-size:13px">del</span><input type="date" id="aAfter"><span style="color:var(--mut);font-size:13px">al</span><input type="date" id="aBefore"></div>
+        <label for="aLabel">Etiqueta / carpeta</label><select id="aLabel"><option value="">Cualquiera</option></select>
+        <label for="aMbox">Archivo</label><select id="aMbox"><option value="">Todos</option></select>
+        <label></label><label style="color:var(--txt)"><input type="checkbox" id="aAtt"> Tiene archivos adjuntos</label>
+      </div>
+      <div class="actions">
+        <button class="btn" id="aReset">Limpiar</button>
+        <button class="btn primary" id="aGo"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Buscar</button>
+      </div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="bLayout" title="Cambiar distribución de paneles (columnas / filas)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M10 4v16"/></svg></button>
+  <button class="iconbtn" id="bHelp" title="Ayuda y operadores de búsqueda"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg></button>
+  <button class="btn hidden" id="bInstall" title="Instalar como aplicación en este equipo"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Instalar</button>
+  <button class="btn" id="bOpen"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Abrir archivos</button>
+  <input type="file" id="file" multiple class="hidden">
+</header>
+
+<main id="main" class="cols">
+  <aside id="side"></aside>
+  <div class="split" id="sp1"></div>
+  <section id="listPane">
+    <div class="ltool">
+      <span class="cnt" id="cnt">—</span>
+      <select class="sm" id="sort" title="Ordenar">
+        <option value="date-desc">Más recientes</option>
+        <option value="date-asc">Más antiguos</option>
+        <option value="from">Remitente (A-Z)</option>
+        <option value="subj">Asunto (A-Z)</option>
+        <option value="size">Tamaño (mayor)</option>
+      </select>
+    </div>
+    <div id="list" tabindex="0"><div id="rows"></div></div>
+  </section>
+  <div class="split" id="sp2"></div>
+  <section id="reader"><div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><p>Selecciona un mensaje para leerlo</p></div></section>
+
+  <div id="welcome">
+    <div class="wcard">
+      <svg viewBox="0 0 24 24" style="width:46px;height:46px;color:var(--g);stroke-width:1.5"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+      <h1>Lector MBOX</h1>
+      <p>Consulta tus archivos de correo guardados (.mbox o .eml) como si estuvieras en tu bandeja.</p><p style="font-size:12.5px">Un archivo .mbox es el formato en que Google Takeout, Thunderbird y otros programas guardan respaldos de correo.</p>
+      <div class="dropzone" id="dz">
+        <p style="margin:0 0 12px;color:var(--txt)">Arrastra aquí uno o varios archivos <b>.mbox</b> o <b>.eml</b></p>
+        <button class="btn primary" id="bOpen2"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Seleccionar archivos</button>
+      </div>
+      <div class="feat">
+        <div><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Vista en paneles redimensionables</div>
+        <div><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Búsqueda simple y avanzada tipo Gmail</div>
+        <div><svg viewBox="0 0 24 24"><path d="M21 15V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14l4-4h12"/></svg>Correos con formato enriquecido (HTML)</div>
+        <div><svg viewBox="0 0 24 24"><path d="m21 12-9 9a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg>Vista previa de PDF, imágenes, Word, Excel, PowerPoint, ZIP…</div>
+        <div><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Descarga de archivos adjuntos</div>
+        <div><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/></svg>Impresión de mensajes</div>
+      </div>
+      <div class="privacy"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Todo se procesa en este equipo. Ningún dato se envía a internet.</div>
+    </div>
+  </div>
+</main>
+
+<footer id="status"><span id="stFiles">Sin archivos abiertos</span><span id="stIdx"></span><span class="ok"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Tus archivos no salen de este equipo</span><span id="stVer"></span></footer>
+
+<div id="drop" class="hidden">Suelta los archivos para abrirlos</div>
+<div id="prog" class="hidden"><div class="pcard"><h3 id="pTitle">Indexando…</h3><div class="ptxt" id="pFile"></div><div class="pbar"><i id="pBar"></i></div><div class="ptxt" id="pTxt"></div><div style="text-align:right;margin-top:12px"><button class="btn sm" id="pCancel">Cancelar</button></div></div></div>
+<div id="modal" class="hidden"><div class="mbox" id="mbox"></div></div>
+<div id="toast" class="hidden"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   CONFIGURACIÓN INSTITUCIONAL (editable)
+   ===================================================================== */
+const CONFIG = {
+  version: '1.0.0',
+  titulo: 'Lector MBOX',
+  organizacion: 'CoBach BC · Uso institucional',
+  maxTextoIndexado: 60000,     // caracteres de cuerpo indexados por mensaje (búsqueda de texto completo)
+  maxTextoIndexadoGrande: 6000 // idem cuando el total abierto supera 1.5 GB
+};
+
+/* =====================================================================
+   UTILIDADES
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const XUD = new TextDecoder('x-user-defined');   // 1 byte = 1 carácter (bytes altos -> U+F780..U+F7FF)
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const fmtSize = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB' : n < 1073741824 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1073741824).toFixed(2) + ' GB';
+const fmtNum = n => n.toLocaleString('es-MX');
+const sleep = () => new Promise(r => setTimeout(r, 0));
+const lsGet = (k, d) => { try { const v = localStorage.getItem('lectorMbox.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem('lectorMbox.' + k, JSON.stringify(v)); } catch (e) {} };
+
+function bin2bytes(s) { const n = s.length, u = new Uint8Array(n); for (let i = 0; i < n; i++) u[i] = s.charCodeAt(i) & 255; return u; }
+function bytes2bin(u) { let s = ''; const C = 0x8000; for (let i = 0; i < u.length; i += C) s += String.fromCharCode.apply(null, u.subarray(i, i + C)); return s; }
+
+function decodeBytes(u, cs) {
+  cs = (cs || '').toLowerCase().trim().replace(/^["']|["']$/g, '');
+  if (!cs || cs === 'us-ascii' || cs === 'ascii' || cs === 'utf8') cs = 'utf-8';
+  if (cs === 'utf-8') { try { return new TextDecoder('utf-8', { fatal: true }).decode(u); } catch (e) { return new TextDecoder('windows-1252').decode(u); } }
+  try { return new TextDecoder(cs).decode(u); }
+  catch (e) { try { return new TextDecoder('utf-8', { fatal: true }).decode(u); } catch (e2) { return new TextDecoder('windows-1252').decode(u); } }
+}
+function decode8bit(s) { return /[-]/.test(s) ? decodeBytes(bin2bytes(s), 'utf-8') : s; }
+
+function b64bytes(s) {
+  s = s.replace(/[^A-Za-z0-9+/]/g, '');
+  if (s.length % 4 === 1) s = s.slice(0, -1);
+  while (s.length % 4) s += '=';
+  try { return bin2bytes(atob(s)); } catch (e) { return new Uint8Array(0); }
+}
+function qpDecode(s, underscore) {
+  s = s.replace(/=\r?\n/g, '');
+  const out = new Uint8Array(s.length); let j = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c === 61 && i + 2 < s.length + 0 && /^[0-9A-Fa-f]{2}$/.test(s.substr(i + 1, 2))) { out[j++] = parseInt(s.substr(i + 1, 2), 16); i += 2; }
+    else if (underscore && c === 95) out[j++] = 32;
+    else out[j++] = c & 255;
+  }
+  return out.subarray(0, j);
+}
+function pctBytes(s) { const a = []; for (let i = 0; i < s.length; i++) { if (s[i] === '%' && /^[0-9A-Fa-f]{2}$/.test(s.substr(i + 1, 2))) { a.push(parseInt(s.substr(i + 1, 2), 16)); i += 2; } else a.push(s.charCodeAt(i) & 255); } return a; }
+
+/* RFC 2047: =?charset?B|Q?texto?= */
+function decodeWords(s) {
+  if (!s) return '';
+  s = decode8bit(s);
+  s = s.replace(/(=\?[^?\s]+\?[bBqQ]\?[^?\s]*\?=)\s+(?==\?[^?\s]+\?[bBqQ]\?)/g, '$1');
+  return s.replace(/=\?([^?\s]+)\?([bBqQ])\?([^?\s]*)\?=/g, (m, cs, enc, txt) => {
+    try { const b = enc.toUpperCase() === 'B' ? b64bytes(txt) : qpDecode(txt, true); return decodeBytes(b, cs.split('*')[0]); } catch (e) { return m; }
+  });
+}
+
+/* =====================================================================
+   PARSER MIME
+   ===================================================================== */
+function splitHB(s) { const m = /\r?\n\r?\n/.exec(s); return m ? [s.slice(0, m.index), s.slice(m.index + m[0].length)] : [s, '']; }
+
+function parseHeaders(h) {
+  const list = [];
+  for (const ln of h.split(/\r?\n/)) {
+    if (/^[ \t]/.test(ln) && list.length) list[list.length - 1].v += ' ' + ln.trim();
+    else { const k = ln.indexOf(':'); if (k > 0) list.push({ n: ln.slice(0, k).trim(), v: ln.slice(k + 1).trim() }); }
+  }
+  const map = {};
+  for (const x of list) { const n = x.n.toLowerCase(); (map[n] || (map[n] = [])).push(x.v); }
+  return { list, map, get(n) { const a = map[n]; return a ? a[0] : ''; }, all(n) { return map[n] || []; } };
+}
+
+function parseParams(v) {
+  const parts = []; let cur = '', q = false;
+  for (let i = 0; i < v.length; i++) {
+    const c = v[i];
+    if (c === '"') { q = !q; cur += c; }
+    else if (c === '\\' && q) { cur += c + (v[i + 1] || ''); i++; }
+    else if (c === ';' && !q) { parts.push(cur); cur = ''; }
+    else cur += c;
+  }
+  parts.push(cur);
+  const value = (parts.shift() || '').trim().toLowerCase();
+  const params = {}, cont = {};
+  for (const p of parts) {
+    const k = p.indexOf('='); if (k < 0) continue;
+    const key = p.slice(0, k).trim().toLowerCase();
+    let val = p.slice(k + 1).trim();
+    if (val.startsWith('"')) val = val.slice(1, val.endsWith('"') && val.length > 1 ? -1 : undefined).replace(/\\(.)/g, '$1');
+    const m = /^([^*]+)(?:\*(\d+))?(\*)?$/.exec(key);
+    if (m && (m[2] !== undefined || m[3])) (cont[m[1]] || (cont[m[1]] = [])).push({ i: m[2] === undefined ? 0 : +m[2], enc: !!m[3], val });
+    else params[key] = val;
+  }
+  for (const [base, arr] of Object.entries(cont)) {   // RFC 2231
+    arr.sort((a, b) => a.i - b.i);
+    let cs = 'utf-8'; const bytes = [];
+    arr.forEach((x, idx) => {
+      let val = x.val;
+      if (x.enc) {
+        if (idx === 0) { const mm = /^([^']*)'[^']*'(.*)$/.exec(val); if (mm) { cs = mm[1] || 'utf-8'; val = mm[2]; } }
+        for (const b of pctBytes(val)) bytes.push(b);
+      } else for (let i = 0; i < val.length; i++) bytes.push(val.charCodeAt(i) & 255);
+    });
+    try { params[base] = decodeBytes(new Uint8Array(bytes), cs); } catch (e) {}
+  }
+  return { value, params };
+}
+
+function splitMultipart(body, boundary) {
+  const e = boundary.replace(/[.*+?^${}()|[\]\\\/-]/g, '\\$&');
+  const re = new RegExp('(^|\\r?\\n)--' + e + '(--)?[ \\t]*(\\r?\\n|$)', 'g');
+  const parts = []; let m, last = -1;
+  while ((m = re.exec(body))) {
+    if (last >= 0) parts.push(body.slice(last, Math.max(last, m.index)));
+    if (m[2]) { last = -1; break; }
+    last = m.index + m[0].length;
+    re.lastIndex = last - (m[3] ? m[3].length : 0);
+    if (re.lastIndex <= m.index) re.lastIndex = m.index + 1;
+  }
+  if (last >= 0 && last < body.length) parts.push(body.slice(last));
+  return parts;
+}
+
+function parseEntity(s, defType, depth) {
+  depth = depth || 0;
+  const [h, b] = splitHB(s);
+  const H = parseHeaders(h);
+  const ctv = H.get('content-type');
+  const ct = ctv ? parseParams(ctv) : { value: defType || 'text/plain', params: {} };
+  if (!ct.value || !ct.value.includes('/')) ct.value = defType || 'text/plain';
+  const cdv = H.get('content-disposition');
+  const cd = cdv ? parseParams(cdv) : { value: '', params: {} };
+  const n = {
+    H, type: ct.value, ctp: ct.params, disp: cd.value, dp: cd.params,
+    cte: (H.get('content-transfer-encoding') || '').toLowerCase().trim(),
+    cid: decode8bit(H.get('content-id') || '').replace(/^\s*<|>\s*$/g, '').trim(),
+    body: b, children: null
+  };
+  n.filename = decodeWords(n.dp.filename || n.ctp.name || '').replace(/[\\/]/g, '_').trim();
+  if (n.type.startsWith('multipart/') && n.ctp.boundary && depth < 40) {
+    const dt = n.type === 'multipart/digest' ? 'message/rfc822' : 'text/plain';
+    n.children = splitMultipart(b, n.ctp.boundary).map(p => parseEntity(p, dt, depth + 1));
+    n.body = '';
+  }
+  return n;
+}
+
+function partBytes(n) {
+  if (n.cte === 'base64') return b64bytes(n.body);
+  if (n.cte === 'quoted-printable') return qpDecode(n.body);
+  return bin2bytes(n.body);
+}
+function partText(n, max) {
+  let body = n.body;
+  if (max && body.length > max * 2) body = body.slice(0, max * 2);
+  const nn = body === n.body ? n : Object.assign({}, n, { body });
+  return decodeBytes(partBytes(nn), n.ctp.charset || 'utf-8');
+}
+function estSize(n) { return n.cte === 'base64' ? Math.floor(n.body.replace(/\s/g, '').length * 3 / 4) : n.body.length; }
+
+/* Clasifica el árbol: cuerpo(s) visibles, adjuntos e imágenes incrustadas (cid) */
+function walkTree(root) {
+  const ctx = { root, bodies: [], atts: [], cids: {}, altText: null };
+  (function walk(n) {
+    if (n.children) {
+      if (n.type === 'multipart/alternative' && n.children.length) {
+        const k = n.children; let pick = null;
+        for (let i = k.length - 1; i >= 0; i--) if (k[i].children || k[i].type === 'text/html') { pick = k[i]; break; }
+        if (!pick) pick = k.find(x => x.type === 'text/plain') || k[k.length - 1];
+        for (const x of k) { if (x === pick) walk(x); else if (x.type === 'text/plain' && !ctx.altText) ctx.altText = x; }
+        return;
+      }
+      for (const x of n.children) walk(x);
+      return;
+    }
+    if (n.type === 'message/rfc822' && n !== root) { ctx.atts.push(n); return; }
+    const isText = n.type === 'text/plain' || n.type === 'text/html';
+    if (isText && n.disp !== 'attachment' && !(n.filename && n.disp !== 'inline')) { ctx.bodies.push(n); return; }
+    if (n.cid) ctx.cids[n.cid.toLowerCase()] = n;
+    if (!n.body && !n.filename) return;
+    ctx.atts.push(n);
+  })(root);
+  return ctx;
+}
+
+/* =====================================================================
+   TEXTO Y HTML
+   ===================================================================== */
+const ENT = { nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", aacute: 'á', eacute: 'é', iacute: 'í', oacute: 'ó', uacute: 'ú', ntilde: 'ñ', uuml: 'ü', iexcl: '¡', iquest: '¿', laquo: '«', raquo: '»', ndash: '–', mdash: '—', hellip: '…', copy: '©', reg: '®', deg: '°', bull: '•', middot: '·', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“', euro: '€' };
+function decodeEntities(s) {
+  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+\d*);/gi, (m, e) => {
+    if (e[0] === '#') { const c = e[1].toLowerCase() === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); try { return String.fromCodePoint(c); } catch (_) { return m; } }
+    const v = ENT[e.toLowerCase()]; return v === undefined ? m : v;
+  });
+}
+function html2text(h) {
+  return decodeEntities(h.replace(/<(script|style|head|title)[\s\S]*?<\/\1\s*>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|tr|li|h\d|table|blockquote)>/gi, '\n').replace(/<[^>]+>/g, ' '))
+    .replace(/[ \t\f\v ]+/g, ' ').replace(/\s*\n\s*/g, '\n').replace(/\n{2,}/g, '\n').trim();
+}
+function linkify(escaped) {
+  return escaped.replace(/\b(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"&]|https?:\/\/[^\s<]+(?:&amp;[^\s<]+)+)/g, '<a href="$1">$1</a>');
+}
+function text2html(t) {
+  const lines = esc(t).split(/\r?\n/).map(l => /^(&gt;\s?)+/.test(l) ? '<span class="q">' + l + '</span>' : l);
+  return '<pre class="plain">' + linkify(lines.join('\n')) + '</pre>';
+}
+const FRAME_CSS = 'html{background:#fff}body{font:14px/1.55 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;color:#202124;margin:18px 20px;word-wrap:break-word;overflow-wrap:anywhere}img{max-width:100%;height:auto}pre.plain{white-space:pre-wrap;font:14px/1.55 "Segoe UI",system-ui,Arial,sans-serif;margin:0}span.q{color:#7a6f69}a{color:#1a56b8}blockquote{border-left:3px solid #ddd;margin:8px 0;padding-left:12px;color:#555}table{max-width:100%}hr.sep{border:0;border-top:1px dashed #ccc;margin:22px 0}';
+function frameDoc(inner, allowRemote, extraCss) {
+  const r = allowRemote ? ' https: http:' : '';
+  const csp = "default-src 'none'; img-src data:" + r + "; style-src 'unsafe-inline'" + r + "; font-src data:" + r + "; media-src data:";
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + csp + '"><base target="_blank"><style>' + FRAME_CSS + (extraCss || '') + '</style></head><body>' + inner + '</body></html>';
+}
+function hasRemote(html) { return /<img[^>]+src\s*=\s*["']?\s*https?:|url\(\s*["']?\s*https?:|background\s*=\s*["']?\s*https?:|<link[^>]+href\s*=\s*["']?\s*https?:/i.test(html); }
+function toDataURL(n) {
+  const b64 = n.cte === 'base64' ? n.body.replace(/[^A-Za-z0-9+/=]/g, '') : btoa(bytes2bin(partBytes(n)));
+  return 'data:' + (n.type || 'application/octet-stream') + ';base64,' + b64;
+}
+
+function buildBody(root) {
+  const ctx = walkTree(root);
+  const parts = [];
+  for (const b of ctx.bodies) { const t = partText(b); parts.push(b.type === 'text/html' ? t : text2html(t)); }
+  let html = parts.length ? parts.join('<hr class="sep">') : '<p style="color:#888">(Mensaje sin cuerpo de texto)</p>';
+  const used = new Set();
+  html = html.replace(/(["'(=\s])cid:([^"')\s>]+)/gi, (m, p, id) => {
+    let k = id; try { k = decodeURIComponent(id); } catch (e) {}
+    const n = ctx.cids[k.toLowerCase()];
+    if (n) { used.add(n); return p + toDataURL(n); }
+    return m;
+  });
+  return { html, atts: ctx.atts.filter(n => !used.has(n)), remote: hasRemote(html), ctx };
+}
+
+/* =====================================================================
+   DIRECCIONES Y FECHAS
+   ===================================================================== */
+function parseAddrs(s) {
+  s = decodeWords(s || '');
+  const out = []; let cur = '', q = false, a = 0;
+  for (const c of s) {
+    if (c === '"') q = !q;
+    if (!q) { if (c === '<') a++; if (c === '>') a--; if ((c === ',' || c === ';') && a <= 0) { out.push(cur); cur = ''; continue; } }
+    cur += c;
+  }
+  out.push(cur);
+  return out.map(x => {
+    x = x.trim().replace(/^[^:<"]*:\s*/, m => /@/.test(m) ? m : '');
+    const m = /^(.*)<([^>]*)>\s*$/.exec(x);
+    if (m) return { name: m[1].trim().replace(/^"|"$/g, '').replace(/\\"/g, '"').trim(), addr: m[2].trim() };
+    const c = /\(([^)]*)\)/.exec(x);
+    return { name: c ? c[1].trim() : '', addr: x.replace(/\([^)]*\)/g, '').trim() };
+  }).filter(x => x.addr || x.name);
+}
+const addrTxt = a => a.name ? a.name + ' <' + a.addr + '>' : a.addr;
+function parseDate(s, fromLine) {
+  let t = Date.parse((s || '').replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim());
+  if (isNaN(t) && fromLine) { const m = /^From \S+\s+(.*)$/.exec(fromLine); if (m) t = Date.parse(m[1]); }
+  return isNaN(t) ? 0 : t;
+}
+const DF_FULL = new Intl.DateTimeFormat('es-MX', { dateStyle: 'full', timeStyle: 'medium' });
+const DF_SHORT = new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const DF_DM = new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' });
+const DF_HM = new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit' });
+const DF_ROW = new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+function listDate(t) {
+  if (!t) return '—';
+  const d = new Date(t), n = new Date();
+  if (d.toDateString() === n.toDateString()) return DF_HM.format(d);
+  if (d.getFullYear() === n.getFullYear()) return DF_DM.format(d);
+  return DF_SHORT.format(d);
+}
+function isoLocal(t) { if (!t) return ''; const d = new Date(t), p = x => String(x).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()); }
+
+/* =====================================================================
+   TIPOS DE ARCHIVO
+   ===================================================================== */
+const EXT_KIND = {
+  pdf: 'pdf', png: 'img', jpg: 'img', jpeg: 'img', gif: 'img', webp: 'img', bmp: 'img', svg: 'img', ico: 'img', avif: 'img',
+  txt: 'text', log: 'text', md: 'text', json: 'text', xml: 'text', ini: 'text', cfg: 'text', conf: 'text', sql: 'text', js: 'text', css: 'text', py: 'text', ps1: 'text', bat: 'text', sh: 'text', yml: 'text', yaml: 'text', ics: 'text', vcf: 'text', vcs: 'text', srt: 'text', vtt: 'text', tsv: 'csv', csv: 'csv',
+  htm: 'html', html: 'html', eml: 'eml', docx: 'docx', docm: 'docx', dotx: 'docx', xlsx: 'xlsx', xlsm: 'xlsx', xltx: 'xlsx', pptx: 'pptx', ppsx: 'pptx', pptm: 'pptx', odt: 'odt', ods: 'ods', odp: 'odp', rtf: 'rtf', zip: 'zip',
+  mp3: 'audio', wav: 'audio', ogg: 'audio', m4a: 'audio', aac: 'audio', opus: 'audio', mp4: 'video', webm: 'video', mov: 'video', m4v: 'video'
+};
+const BADGES = {
+  pdf: ['PDF', '#c62828'], img: ['IMG', '#7b3fa6'], doc: ['DOC', '#1f5fbf'], docx: ['DOC', '#1f5fbf'], odt: ['ODT', '#1f5fbf'], rtf: ['RTF', '#1f5fbf'],
+  xlsx: ['XLS', '#1d7a43'], ods: ['ODS', '#1d7a43'], csv: ['CSV', '#1d7a43'], xls: ['XLS', '#1d7a43'], pptx: ['PPT', '#d4561c'], odp: ['ODP', '#d4561c'], ppt: ['PPT', '#d4561c'],
+  zip: ['ZIP', '#6b625c'], eml: ['EML', '#b8860b'], text: ['TXT', '#5a6b7a'], html: ['HTML', '#a33d6a'], audio: ['AUD', '#2b7a8c'], video: ['VID', '#2b7a8c'], other: ['', '#8a817b']
+};
+function extOf(name) { const m = /\.([a-z0-9]{1,6})$/i.exec(name || ''); return m ? m[1].toLowerCase() : ''; }
+function kindOf(n) {
+  const name = attName(n), ext = extOf(name), t = n.type || '';
+  if (t === 'message/rfc822') return 'eml';
+  if (EXT_KIND[ext]) return EXT_KIND[ext];
+  if (t === 'application/pdf') return 'pdf';
+  if (/^image\//.test(t)) return 'img';
+  if (/^audio\//.test(t)) return 'audio';
+  if (/^video\//.test(t)) return 'video';
+  if (t === 'text/html') return 'html';
+  if (t === 'text/csv') return 'csv';
+  if (/^text\//.test(t) || /json|xml|calendar/.test(t)) return 'text';
+  if (/wordprocessingml/.test(t)) return 'docx';
+  if (/spreadsheetml/.test(t)) return 'xlsx';
+  if (/presentationml/.test(t)) return 'pptx';
+  if (/zip/.test(t)) return 'zip';
+  if (ext === 'doc') return 'doc'; if (ext === 'xls') return 'xls'; if (ext === 'ppt') return 'ppt';
+  return 'other';
+}
+function attName(n) {
+  if (n.filename) return n.filename;
+  if (n.type === 'message/rfc822') { try { const s = decodeWords(parseHeaders(splitHB(n.body)[0]).get('subject')); return (s || 'mensaje').slice(0, 80) + '.eml'; } catch (e) { return 'mensaje.eml'; } }
+  const sub = (n.type || '').split('/')[1] || 'bin';
+  return 'adjunto.' + sub.replace(/[^a-z0-9]/gi, '').slice(0, 5);
+}
+function badgeHTML(kind, ext) {
+  const b = BADGES[kind] || BADGES.other;
+  const label = b[0] || (ext || 'ARCH').toUpperCase().slice(0, 4);
+  return '<span class="badge" style="background:' + b[1] + '">' + esc(label) + '</span>';
+}
+
+/* =====================================================================
+   ESTADO
+   ===================================================================== */
+const APP = {
+  files: [], msgs: [], view: [], sel: -1, cur: null, quick: { type: 'all' }, query: '', sort: 'date-desc',
+  cancel: false, busy: false, urls: [], remoteOk: new Set(), labels: new Map(), totalBytes: 0
+};
+const ROW = 72;
+
+/* =====================================================================
+   CARGA E INDEXACIÓN
+   ===================================================================== */
+function isStartLine(s, idx) {   // idx = posición de la "F" de "From "
+  if (idx === 0) return true;
+  if (s[idx - 1] !== '\n') return false;
+  if (idx >= 2 && (s[idx - 2] === '\n' || (s[idx - 2] === '\r' && idx >= 3 && s[idx - 3] === '\n'))) return true;
+  let e = s.indexOf('\n', idx); if (e < 0) e = Math.min(s.length, idx + 300);
+  return /^From \S+\s+.*\d{1,2}:\d{2}/.test(s.slice(idx, Math.min(e, idx + 300)));
+}
+
+async function loadFiles(list) {
+  list = [...list].filter(f => f && f.size > 0);
+  if (!list.length || APP.busy) return;
+  APP.busy = true; APP.cancel = false;
+  $('#prog').classList.remove('hidden');
+  const totalAll = list.reduce((a, f) => a + f.size, 0);
+  APP.totalBytes += totalAll;
+  const cap = APP.totalBytes > 1.5e9 ? CONFIG.maxTextoIndexadoGrande : CONFIG.maxTextoIndexado;
+  let doneAll = 0, t0 = performance.now(), lastUi = 0;
+  try {
+    for (const file of list) {
+      if (APP.cancel) break;
+      const fi = APP.files.length;
+      const rec = { file, name: file.name, size: file.size, count: 0 };
+      APP.files.push(rec);
+      $('#pFile').textContent = file.name + ' · ' + fmtSize(file.size);
+      const CH = 8 * 1024 * 1024;
+      let off = 0, carry = '', carryOff = 0, first = true, single = false;
+      while (off < file.size || carry) {
+        if (APP.cancel) break;
+        let chunk = '';
+        if (off < file.size) { const buf = await file.slice(off, off + CH).arrayBuffer(); chunk = XUD.decode(buf); off += buf.byteLength; }
+        const last = off >= file.size;
+        let s = carry + chunk; const base = carryOff;
+        if (first) {
+          first = false;
+          let k = 0; while (k < s.length && /[\r\n]/.test(s[k])) k++;
+          if (!s.startsWith('From ', k)) single = true;     // archivo .eml (un solo mensaje)
+          else if (k) { s = s.slice(k); carryOff += k; }
+        }
+        if (single) {
+          if (!last) { carry = s; continue; }
+          indexMessage(s, fi, base, base + s.length, cap); rec.count++; carry = ''; break;
+        }
+        const limit = last ? s.length : Math.max(0, s.length - 4096);
+        const starts = [0];
+        const re = /\nFrom /g; re.lastIndex = 0; let m;
+        while ((m = re.exec(s)) && m.index + 1 < limit) { if (isStartLine(s, m.index + 1)) starts.push(m.index + 1); }
+        const usable = last ? starts.length : starts.length - 1;
+        for (let i = 0; i < usable; i++) {
+          const a = starts[i], b = i + 1 < starts.length ? starts[i + 1] : s.length;
+          indexMessage(s.slice(a, b), fi, carryOff + a, carryOff + b, cap); rec.count++;
+        }
+        if (last) { carry = ''; break; }
+        const ls = starts[starts.length - 1];
+        carry = s.slice(ls); carryOff = carryOff + ls;
+        void base;
+        const now = performance.now();
+        if (now - lastUi > 120) {
+          lastUi = now;
+          const done = doneAll + off;
+          $('#pBar').style.width = (100 * done / totalAll).toFixed(1) + '%';
+          $('#pTxt').textContent = fmtNum(APP.msgs.length) + ' mensajes · ' + fmtSize(done) + ' de ' + fmtSize(totalAll);
+          await sleep();
+        }
+      }
+      doneAll += file.size;
+    }
+  } catch (err) {
+    console.error(err); toast('Error al leer el archivo: ' + err.message);
+  }
+  APP.busy = false;
+  $('#prog').classList.add('hidden');
+  const secs = ((performance.now() - t0) / 1000).toFixed(1);
+  if (APP.cancel) toast('Carga cancelada. Se indexaron ' + fmtNum(APP.msgs.length) + ' mensajes.');
+  else toast('Listo: ' + fmtNum(APP.msgs.length) + ' mensajes indexados en ' + secs + ' s');
+  $('#welcome').classList.toggle('hidden', APP.msgs.length > 0);
+  rebuildSide(); applyFilters(true);
+}
+
+function indexMessage(raw, fi, start, end, cap) {
+  let fromLine = '', skip = 0;
+  if (raw.startsWith('From ')) { const k = raw.indexOf('\n'); fromLine = raw.slice(0, k < 0 ? raw.length : k).replace(/\r$/, ''); skip = k < 0 ? raw.length : k + 1; }
+  const body = raw.slice(skip);
+  let root;
+  try { root = parseEntity(body); } catch (e) { root = { H: parseHeaders(''), type: 'text/plain', ctp: {}, body: body, children: null }; }
+  const H = root.H;
+  const from = parseAddrs(H.get('from'))[0] || parseAddrs(H.get('sender'))[0] || { name: '', addr: '' };
+  const to = H.all('to').map(parseAddrs).flat(), cc = H.all('cc').map(parseAddrs).flat(), bcc = H.all('bcc').map(parseAddrs).flat();
+  const subj = decodeWords(H.get('subject')).replace(/\s+/g, ' ').trim();
+  const labels = decodeWords(H.get('x-gmail-labels')).split(',').map(x => x.trim().replace(/^"|"$/g, '')).filter(Boolean);
+  let text = '', atts = [];
+  try {
+    const ctx = walkTree(root);
+    const tparts = [];
+    if (ctx.altText && !ctx.bodies.some(b => b.type === 'text/plain')) tparts.push(partText(ctx.altText, cap));
+    for (const b of ctx.bodies) { const t = partText(b, cap * 3); tparts.push(b.type === 'text/html' ? html2text(t) : t); }
+    text = tparts.join('\n').replace(/\s+/g, ' ').trim();
+    atts = ctx.atts.filter(n => !(n.cid && n.disp !== 'attachment' && /^image\//.test(n.type) && !n.filename)).map(n => ({ name: attName(n), size: estSize(n), kind: kindOf(n) }));
+  } catch (e) { text = ''; }
+  const m = {
+    id: APP.msgs.length, f: fi, s: start, e: end, size: end - start,
+    from, to, cc, bcc, subj, date: parseDate(H.get('date'), fromLine), labels, atts,
+    msgid: decode8bit(H.get('message-id')).replace(/^<|>$/g, ''),
+    snip: text.slice(0, 180),
+    nFrom: norm(from.name + ' ' + from.addr), nTo: norm(to.map(addrTxt).join(' ')), nCc: norm(cc.map(addrTxt).join(' ')), nBcc: norm(bcc.map(addrTxt).join(' ')),
+    nSubj: norm(subj), nBody: norm(text.slice(0, cap)), nAtt: norm(atts.map(a => a.name).join(' ')), nLabels: norm(labels.join('|'))
+  };
+  APP.msgs.push(m);
+  for (const l of labels) APP.labels.set(l, (APP.labels.get(l) || 0) + 1);
+}
+
+/* =====================================================================
+   BÚSQUEDA
+   ===================================================================== */
+const FIELD = {
+  from: 'from', de: 'from', to: 'to', para: 'to', cc: 'cc', bcc: 'bcc', cco: 'bcc', subject: 'subject', asunto: 'subject',
+  has: 'has', tiene: 'has', filename: 'filename', adjunto: 'filename', archivo_adjunto: 'filename',
+  after: 'after', despues: 'after', desde: 'after', before: 'before', antes: 'before', hasta: 'before',
+  larger: 'larger', mayor: 'larger', smaller: 'smaller', menor: 'smaller', label: 'label', etiqueta: 'label', in: 'label',
+  mbox: 'mbox', archivo: 'mbox', body: 'body', cuerpo: 'body', id: 'msgid'
+};
+function parseQuery(q) {
+  const toks = [], re = /(-)?(?:([\wñáéíóú]+):)?(?:"([^"]*)"?|(\S+))/gi; let m;
+  while ((m = re.exec(q))) {
+    if (!m[0].trim()) { re.lastIndex++; continue; }
+    const neg = !!m[1]; let field = m[2] ? norm(m[2]) : null; let val = m[3] !== undefined ? m[3] : m[4];
+    if (!neg && !field && m[3] === undefined && (val === 'OR' || val === 'O' || val === '|')) { toks.push({ or: true }); continue; }
+    if (field && !FIELD[field]) { val = m[2] + ':' + val; field = null; }
+    if (val === undefined || val === '') continue;
+    toks.push({ neg, field: field ? FIELD[field] : null, val, nv: norm(val) });
+  }
+  const groups = []; let pend = false;
+  for (const t of toks) { if (t.or) { pend = true; continue; } if (pend && groups.length) groups[groups.length - 1].push(t); else groups.push([t]); pend = false; }
+  return groups;
+}
+function parseQDate(v) {
+  let m = /^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/.exec(v);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+  m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/.exec(v);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+  const t = Date.parse(v); return isNaN(t) ? null : t;
+}
+function parseQSize(v) { const m = /^([\d.]+)\s*([kmg]?)b?$/i.exec(v); if (!m) return null; return parseFloat(m[1]) * ({ '': 1, k: 1024, m: 1048576, g: 1073741824 })[m[2].toLowerCase()]; }
+function termMatch(m, t) {
+  const v = t.nv;
+  switch (t.field) {
+    case 'from': return m.nFrom.includes(v);
+    case 'to': return m.nTo.includes(v) || m.nCc.includes(v) || m.nBcc.includes(v);
+    case 'cc': return m.nCc.includes(v);
+    case 'bcc': return m.nBcc.includes(v);
+    case 'subject': return m.nSubj.includes(v);
+    case 'body': return m.nBody.includes(v);
+    case 'filename': return m.nAtt.includes(v);
+    case 'label': return m.nLabels.includes(v);
+    case 'mbox': return norm(APP.files[m.f].name).includes(v);
+    case 'msgid': return norm(m.msgid).includes(v);
+    case 'has': {
+      if (/^(attachment|adjuntos?|archivos?)$/.test(v)) return m.atts.length > 0;
+      if (v === 'pdf') return m.atts.some(a => a.kind === 'pdf');
+      if (/^(image|imagen|imagenes|foto)$/.test(v)) return m.atts.some(a => a.kind === 'img');
+      if (/^(document|documento|word|doc)$/.test(v)) return m.atts.some(a => /^(docx|doc|odt|rtf)$/.test(a.kind));
+      if (/^(spreadsheet|hoja|excel|xls)$/.test(v)) return m.atts.some(a => /^(xlsx|xls|ods|csv)$/.test(a.kind));
+      if (/^(presentation|presentacion|powerpoint|ppt)$/.test(v)) return m.atts.some(a => /^(pptx|ppt|odp)$/.test(a.kind));
+      if (/^(zip|comprimido)$/.test(v)) return m.atts.some(a => a.kind === 'zip');
+      if (/^(eml|mensaje)$/.test(v)) return m.atts.some(a => a.kind === 'eml');
+      return m.nAtt.includes(v);
+    }
+    case 'after': { const d = parseQDate(t.val); return d === null ? true : m.date >= d; }
+    case 'before': { const d = parseQDate(t.val); return d === null ? true : (m.date && m.date < d); }
+    case 'larger': { const s = parseQSize(t.val); return s === null ? true : m.size > s; }
+    case 'smaller': { const s = parseQSize(t.val); return s === null ? true : m.size < s; }
+    default: return m.nSubj.includes(v) || m.nFrom.includes(v) || m.nTo.includes(v) || m.nCc.includes(v) || m.nBody.includes(v) || m.nAtt.includes(v) || m.nBcc.includes(v);
+  }
+}
+function matchQuery(m, groups) { for (const g of groups) { if (!g.some(t => termMatch(m, t) !== t.neg)) return false; } return true; }
+
+function applyFilters(keepSel) {
+  const groups = parseQuery(APP.query);
+  const q = APP.quick;
+  const prevId = APP.sel >= 0 ? APP.view[APP.sel] : -1;
+  const out = [];
+  for (const m of APP.msgs) {
+    if (q.type === 'att' && !m.atts.length) continue;
+    if (q.type === 'file' && m.f !== q.val) continue;
+    if (q.type === 'label' && !m.labels.includes(q.val)) continue;
+    if (groups.length && !matchQuery(m, groups)) continue;
+    out.push(m.id);
+  }
+  const M = APP.msgs, s = APP.sort;
+  const cmpS = (a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' });
+  out.sort((a, b) => {
+    const x = M[a], y = M[b];
+    if (s === 'date-asc') return x.date - y.date || a - b;
+    if (s === 'from') return cmpS(x.from.name || x.from.addr, y.from.name || y.from.addr) || y.date - x.date;
+    if (s === 'subj') return cmpS(x.subj.replace(/^((re|rv|fw|fwd|reenviar|respuesta)\s*:\s*)+/i, ''), y.subj.replace(/^((re|rv|fw|fwd|reenviar|respuesta)\s*:\s*)+/i, '')) || y.date - x.date;
+    if (s === 'size') return y.size - x.size;
+    return y.date - x.date || b - a;
+  });
+  APP.view = out;
+  APP.sel = keepSel && prevId >= 0 ? out.indexOf(prevId) : -1;
+  if (!keepSel) $('#list').scrollTop = 0;
+  renderList(); updateCounts();
+}
+
+/* =====================================================================
+   INTERFAZ: LATERAL, LISTA, CONTADORES
+   ===================================================================== */
+const IC = {
+  inbox: '<svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/></svg>',
+  clip: '<svg viewBox="0 0 24 24"><path d="m21 12-9 9a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg>',
+  file: '<svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>',
+  dl: '<svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
+  print: '<svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/></svg>',
+  code: '<svg viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5"/></svg>',
+  x: '<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  left: '<svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>',
+  right: '<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>',
+  ext: '<svg viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>',
+  back: '<svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>',
+  img: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>',
+  tag: '<svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>',
+  plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  trash: '<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>'
+};
+const LCOL = ['#6d1022', '#b8860b', '#1f5fbf', '#1d7a43', '#7b3fa6', '#d4561c', '#2b7a8c', '#a33d6a', '#5a6b7a'];
+function colorFor(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return LCOL[Math.abs(h) % LCOL.length]; }
+function initial(a) { const s = (a.name || a.addr || '?').replace(/^["'\s]+/, ''); return esc((s[0] || '?').toUpperCase()); }
+
+function rebuildSide() {
+  const q = APP.quick, total = APP.msgs.length, withAtt = APP.msgs.reduce((a, m) => a + (m.atts.length ? 1 : 0), 0);
+  let h = '<div class="navh">Vistas</div>';
+  h += '<div class="nav' + (q.type === 'all' ? ' on' : '') + '" data-q="all">' + IC.inbox + '<span class="t">Todos los mensajes</span><span class="c">' + fmtNum(total) + '</span></div>';
+  h += '<div class="nav' + (q.type === 'att' ? ' on' : '') + '" data-q="att">' + IC.clip + '<span class="t">Con adjuntos</span><span class="c">' + fmtNum(withAtt) + '</span></div>';
+  h += '<div class="navh">Archivos abiertos</div>';
+  APP.files.forEach((f, i) => { h += '<div class="nav' + (q.type === 'file' && q.val === i ? ' on' : '') + '" data-q="file" data-v="' + i + '" title="' + esc(f.name + ' · ' + fmtSize(f.size)) + '">' + IC.file + '<span class="t">' + esc(f.name) + '</span><span class="c">' + fmtNum(f.count) + '</span></div>'; });
+  h += '<div class="nav" data-act="add" style="color:var(--g)">' + IC.plus + '<span class="t">Agregar archivos…</span></div>';
+  if (APP.files.length) h += '<div class="nav" data-act="close" style="color:var(--mut)">' + IC.trash + '<span class="t">Cerrar todo</span></div>';
+  if (APP.labels.size) {
+    h += '<div class="navh">Etiquetas</div>';
+    [...APP.labels.entries()].sort((a, b) => b[1] - a[1]).forEach(([l, c]) => {
+      h += '<div class="nav' + (q.type === 'label' && q.val === l ? ' on' : '') + '" data-q="label" data-v="' + esc(l) + '" title="' + esc(l) + '"><span class="dot" style="background:' + colorFor(l) + '"></span><span class="t">' + esc(l) + '</span><span class="c">' + fmtNum(c) + '</span></div>';
+    });
+  }
+  h += '<div class="side-note">Consejo: usa el botón de filtros junto al buscador para buscar por remitente, fecha o adjuntos.</div>';
+  $('#side').innerHTML = h;
+  // selects de búsqueda avanzada
+  $('#aLabel').innerHTML = '<option value="">Cualquiera</option>' + [...APP.labels.keys()].sort().map(l => '<option>' + esc(l) + '</option>').join('');
+  $('#aMbox').innerHTML = '<option value="">Todos</option>' + APP.files.map(f => '<option>' + esc(f.name) + '</option>').join('');
+}
+$('#side').addEventListener('click', e => {
+  const n = e.target.closest('.nav'); if (!n) return;
+  if (n.dataset.act === 'add') return $('#file').click();
+  if (n.dataset.act === 'close') return closeAll();
+  const t = n.dataset.q; APP.quick = { type: t, val: t === 'file' ? +n.dataset.v : n.dataset.v };
+  rebuildSide(); applyFilters(false);
+});
+
+function updateCounts() {
+  const n = APP.view.length, t = APP.msgs.length;
+  let lbl = n === t ? fmtNum(t) + ' mensajes' : fmtNum(n) + ' de ' + fmtNum(t) + ' mensajes';
+  $('#cnt').textContent = t ? lbl : '—';
+  $('#stFiles').textContent = APP.files.length ? APP.files.length + (APP.files.length === 1 ? ' archivo' : ' archivos') + ' · ' + fmtSize(APP.files.reduce((a, f) => a + f.size, 0)) : 'Sin archivos abiertos';
+  $('#stIdx').textContent = t ? fmtNum(t) + ' mensajes' : '';
+}
+
+function renderList() {
+  const L = $('#list'), R = $('#rows');
+  if (!APP.view.length) { R.style.height = 'auto'; R.style.transform = ''; R.innerHTML = APP.msgs.length ? '<div class="noresults">No hay mensajes que coincidan con la búsqueda.</div>' : ''; return; }
+  const top = L.scrollTop, h = L.clientHeight || 600;
+  const a = Math.max(0, Math.floor(top / ROW) - 6), b = Math.min(APP.view.length, Math.ceil((top + h) / ROW) + 6);
+  let html = '';
+  for (let i = a; i < b; i++) {
+    const m = APP.msgs[APP.view[i]];
+    const who = m.from.name || m.from.addr || '(sin remitente)';
+    html += '<div class="row' + (i === APP.sel ? ' sel' : '') + '" data-i="' + i + '" style="position:absolute;left:0;right:0;top:' + (i * ROW) + 'px" title="' + esc(m.from.addr) + '">'
+      + '<div class="av" style="background:' + colorFor(m.from.addr || who) + '">' + initial(m.from) + '</div>'
+      + '<div class="r-from">' + esc(who) + '</div>'
+      + '<div class="r-meta">' + (m.atts.length ? IC.clip : '') + '<span title="' + esc(m.date ? DF_ROW.format(new Date(m.date)) : '') + '">' + listDate(m.date) + '</span></div>'
+      + '<div class="r-subj">' + esc(m.subj || '(sin asunto)') + '</div>'
+      + '<div class="r-snip">' + esc(m.snip || '') + '</div></div>';
+  }
+  R.style.height = (APP.view.length * ROW) + 'px'; R.style.transform = '';
+  R.innerHTML = html;
+}
+$('#list').addEventListener('scroll', () => requestAnimationFrame(renderList));
+window.addEventListener('resize', () => requestAnimationFrame(renderList));
+$('#rows').addEventListener('click', e => { const r = e.target.closest('.row'); if (r) select(+r.dataset.i); });
+
+function select(i, scroll) {
+  if (i < 0 || i >= APP.view.length) return;
+  APP.sel = i; renderList();
+  if (scroll) {
+    const L = $('#list'), y = i * ROW;
+    if (y < L.scrollTop) L.scrollTop = y; else if (y + ROW > L.scrollTop + L.clientHeight) L.scrollTop = y + ROW - L.clientHeight;
+  }
+  openMessage(APP.view[i]);
+}
+
+/* =====================================================================
+   LECTOR DE MENSAJES
+   ===================================================================== */
+function revokeAll() { for (const u of APP.urls) URL.revokeObjectURL(u); APP.urls = []; }
+function blobURL(bytes, type) { const u = URL.createObjectURL(new Blob([bytes], { type: type || 'application/octet-stream' })); APP.urls.push(u); return u; }
+
+async function readRaw(m) {
+  const buf = new Uint8Array(await APP.files[m.f].file.slice(m.s, m.e).arrayBuffer());
+  let k = 0;
+  if (buf[0] === 70 && buf[1] === 114 && buf[2] === 111 && buf[3] === 109 && buf[4] === 32) { while (k < buf.length && buf[k] !== 10) k++; k++; }
+  return buf.subarray(k);
+}
+
+let openToken = 0;
+async function openMessage(id) {
+  const m = APP.msgs[id]; const tok = ++openToken;
+  const bytes = await readRaw(m);
+  if (tok !== openToken) return;
+  revokeAll();
+  let raw = XUD.decode(bytes); const orig = raw;
+  if (/\n>+From /.test(raw)) { raw = raw.replace(/(^|\n)>(>*From )/g, '$1$2'); }   // des-escapado mboxrd
+  let root; try { root = parseEntity(raw); } catch (e) { root = parseEntity('Content-Type: text/plain\n\n' + raw); }
+  const eml = raw === orig ? bytes : bin2bytes(raw);
+  APP.cur = { m, root, bytes: eml };
+  renderMessage(root, $('#reader'), { m, top: true, bytes: eml });
+}
+
+function renderMessage(root, el, opt) {
+  const H = root.H, m = opt.m;
+  const subj = decodeWords(H.get('subject')).trim() || '(sin asunto)';
+  const from = parseAddrs(H.get('from'))[0] || { name: '', addr: '' };
+  const to = H.all('to').map(parseAddrs).flat(), cc = H.all('cc').map(parseAddrs).flat(), bcc = H.all('bcc').map(parseAddrs).flat();
+  const date = parseDate(H.get('date'));
+  const B = buildBody(root);
+  const key = m ? 'm' + m.id : 'n' + Math.random();
+  const allowRemote = APP.remoteOk.has(key);
+  const lst = a => a.map(x => esc(addrTxt(x))).join(', ');
+  const toShort = to.length ? to.slice(0, 3).map(x => esc(x.name || x.addr)).join(', ') + (to.length > 3 ? ' y ' + (to.length - 3) + ' más' : '') : '(sin destinatarios visibles)';
+  const labels = decodeWords(H.get('x-gmail-labels')).split(',').map(x => x.trim()).filter(Boolean);
+  let h = '<div class="msg"><div class="mhead">';
+  if (opt.top) h += '<div class="mtools">'
+    + '<button class="btn sm" data-a="print">' + IC.print + 'Imprimir</button>'
+    + '</div>';
+  h += '<h2 class="msubj">' + esc(subj) + '</h2>'
+    + '<div class="mfrom"><div class="av" style="background:' + colorFor(from.addr || from.name) + '">' + initial(from) + '</div>'
+    + '<div><span class="nm">' + esc(from.name || from.addr || '(sin remitente)') + '</span> ' + (from.name ? '<span class="ad">&lt;' + esc(from.addr) + '&gt;</span>' : '') + '</div>'
+    + '<div class="dt" title="' + esc(H.get('date')) + '">' + (date ? esc(DF_ROW.format(new Date(date))) : '') + '</div>'
+    + '<div class="to">para ' + toShort + (cc.length ? ' · CC: ' + cc.length : '') + (bcc.length ? ' · CCO: ' + bcc.length : '') + '</div></div>';
+  if (labels.length) h += '<div class="chips">' + labels.map(l => '<span class="chip" style="border-left:3px solid ' + colorFor(l) + '">' + esc(l) + '</span>').join('') + '</div>';
+  h += '<details class="det"><summary>Mostrar detalles</summary><table class="kv">'
+    + '<tr><td>De</td><td>' + esc(addrTxt(from)) + '</td></tr>'
+    + (H.get('reply-to') ? '<tr><td>Responder a</td><td>' + esc(decodeWords(H.get('reply-to'))) + '</td></tr>' : '')
+    + '<tr><td>Para</td><td>' + (lst(to) || '—') + '</td></tr>'
+    + (cc.length ? '<tr><td>CC</td><td>' + lst(cc) + '</td></tr>' : '')
+    + (bcc.length ? '<tr><td>CCO</td><td>' + lst(bcc) + '</td></tr>' : '')
+    + '<tr><td>Fecha</td><td>' + (date ? esc(DF_FULL.format(new Date(date))) : '—') + '</td></tr>'
+        + '<tr><td>Asunto</td><td>' + esc(subj) + '</td></tr>'
+    + (m ? '<tr><td>Archivo</td><td>' + esc(APP.files[m.f].name) + '</td></tr><tr><td>Tamaño</td><td>' + fmtSize(m.size) + '</td></tr>' : '')
+    + '</table></details></div>';
+  if (B.remote && !allowRemote) h += '<div class="banner">' + IC.img + '<span style="flex:1">Las imágenes externas están bloqueadas para proteger la privacidad (evitan avisar al remitente que el mensaje se abrió).</span><button class="btn sm" data-a="remote">Mostrar imágenes</button></div>';
+  if (B.atts.length) {
+    h += '<div class="atts"><div class="lbl">' + IC.clip + B.atts.length + (B.atts.length === 1 ? ' archivo adjunto' : ' archivos adjuntos') + '</div>';
+    B.atts.forEach((n, i) => {
+      const name = attName(n), kind = kindOf(n), size = estSize(n);
+      let thumb = badgeHTML(kind, extOf(name));
+      if (kind === 'img' && size < 4e6 && !/svg/.test(n.type + extOf(name))) { try { thumb = '<img class="thumb" alt="" src="' + blobURL(partBytes(n), /^image\//.test(n.type) ? n.type : 'image/' + extOf(name)) + '">'; } catch (e) {} }
+      h += '<div class="att" data-i="' + i + '" title="' + esc(name) + '">' + thumb + '<div class="info"><span class="nm">' + esc(name) + '</span><span class="sz">' + fmtSize(size) + '</span></div><button class="iconbtn dl" data-dl="' + i + '" title="Descargar">' + IC.dl + '</button></div>';
+    });
+    h += '</div>';
+  }
+  h += '<iframe class="mframe" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" title="Contenido del mensaje"></iframe></div>';
+  el.innerHTML = h;
+  el.querySelector('.mframe').srcdoc = frameDoc(B.html, allowRemote);
+  el.onclick = async e => {
+    const dl = e.target.closest('[data-dl]');
+    if (dl) { e.stopPropagation(); return downloadPart(B.atts[+dl.dataset.dl]); }
+    const at = e.target.closest('.att');
+    if (at) return openPreview(B.atts, +at.dataset.i);
+    const a = e.target.closest('[data-a]'); if (!a) return;
+    const act = a.dataset.a;
+    if (act === 'remote') { APP.remoteOk.add(key); renderMessage(root, el, opt); }
+    else if (act === 'print') printMessage(root, B, { subj, from, to, cc, bcc, date, m });
+  };
+}
+
+function downloadBytes(bytes, name, type) {
+  const u = URL.createObjectURL(new Blob([bytes], { type: type || 'application/octet-stream' }));
+  const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 30000);
+}
+function downloadPart(n) {
+  const bytes = n.type === 'message/rfc822' && !['base64', 'quoted-printable'].includes(n.cte) ? bin2bytes(n.body) : partBytes(n);
+  downloadBytes(bytes, attName(n), n.type);
+}
+
+
+function printMessage(root, B, info) {
+  const f = document.createElement('iframe');
+  f.setAttribute('sandbox', 'allow-same-origin allow-modals');
+  f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  const row = (k, v) => v ? '<tr><td style="color:#666;padding:2px 12px 2px 0;vertical-align:top;white-space:nowrap">' + k + '</td><td style="padding:2px 0">' + v + '</td></tr>' : '';
+  const lst = a => a.map(x => esc(addrTxt(x))).join(', ');
+  const head = '<div style="border-bottom:2px solid #6d1022;padding-bottom:10px;margin-bottom:14px"><div style="font-size:11px;color:#888">' + esc(CONFIG.titulo + ' · ' + CONFIG.organizacion) + ' · Impreso: ' + esc(DF_ROW.format(new Date())) + '</div>'
+    + '<h2 style="margin:8px 0">' + esc(info.subj) + '</h2><table style="font-size:13px;border-collapse:collapse">'
+    + row('De', esc(addrTxt(info.from))) + row('Para', lst(info.to)) + row('CC', lst(info.cc)) + row('CCO', lst(info.bcc))
+    + row('Fecha', info.date ? esc(DF_FULL.format(new Date(info.date))) : '')
+    + row('Adjuntos', B.atts.map(n => esc(attName(n)) + ' (' + fmtSize(estSize(n)) + ')').join('<br>')) + '</table></div>';
+  f.srcdoc = frameDoc(head + B.html, false, '@media print{body{margin:0}}');
+  f.onload = () => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { toast('No se pudo imprimir: ' + e.message); } setTimeout(() => f.remove(), 60000); };
+  document.body.appendChild(f);
+}
+
+/* =====================================================================
+   VISTA PREVIA DE ADJUNTOS
+   ===================================================================== */
+const MODAL = { stack: [], urls: [] };
+function mURL(bytes, type) { const u = URL.createObjectURL(new Blob([bytes], { type })); MODAL.urls.push(u); return u; }
+function modalOpen(o) {
+  const box = $('#mbox');
+  const acts = (o.actions || []).map((a, i) => '<button class="btn sm" data-ma="' + i + '">' + (a.icon || '') + esc(a.label) + '</button>').join('');
+  box.innerHTML = '<div class="mbar">'
+    + (MODAL.stack.length ? '<button class="iconbtn" data-m="back" title="Volver">' + IC.back + '</button>' : '')
+    + (o.nav ? '<button class="iconbtn" data-m="prev" title="Anterior (←)"' + (o.nav.i > 0 ? '' : ' disabled style="opacity:.3"') + '>' + IC.left + '</button><button class="iconbtn" data-m="next" title="Siguiente (→)"' + (o.nav.i < o.nav.n - 1 ? '' : ' disabled style="opacity:.3"') + '>' + IC.right + '</button>' : '')
+    + (o.badge || '') + '<div class="ttl"><b>' + esc(o.title) + '</b><small>' + esc(o.sub || '') + '</small></div>' + acts
+    + '<button class="iconbtn" data-m="close" title="Cerrar (Esc)">' + IC.x + '</button></div><div class="mbody" id="mbody">' + (o.body || '') + '</div>' + (o.note ? '<div class="note">' + o.note + '</div>' : '');
+  box.onclick = e => {
+    const b = e.target.closest('[data-m]');
+    if (b) { const k = b.dataset.m; if (k === 'close') modalClose(); else if (k === 'back') modalBack(); else if (k === 'prev' && o.nav) o.nav.go(o.nav.i - 1); else if (k === 'next' && o.nav) o.nav.go(o.nav.i + 1); return; }
+    const a = e.target.closest('[data-ma]'); if (a) o.actions[+a.dataset.ma].fn();
+  };
+  MODAL.cur = o;
+  $('#modal').classList.remove('hidden');
+  if (o.after) o.after($('#mbody'));
+}
+function modalClose() { $('#modal').classList.add('hidden'); $('#mbox').innerHTML = ''; for (const u of MODAL.urls) URL.revokeObjectURL(u); MODAL.urls = []; MODAL.stack = []; MODAL.cur = null; }
+function modalBack() { const prev = MODAL.stack.pop(); if (prev) prev(); else modalClose(); }
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') modalClose(); });
+
+async function openPreview(list, i) {
+  const n = list[i], name = attName(n), kind = kindOf(n), ext = extOf(name), size = estSize(n);
+  const nav = list.length > 1 ? { i, n: list.length, go: j => { if (j >= 0 && j < list.length) openPreview(list, j); } } : null;
+  const dlAct = { label: 'Descargar', icon: IC.dl, fn: () => downloadPart(n) };
+  const base = { title: name, sub: (n.type || '') + ' · ' + fmtSize(size), badge: badgeHTML(kind, ext), nav, actions: [dlAct] };
+  const show = o => modalOpen(Object.assign({}, base, o, { actions: (o.extra || []).concat(base.actions) }));
+  let bytes;
+  try { bytes = n.type === 'message/rfc822' && !['base64', 'quoted-printable'].includes(n.cte) ? bin2bytes(n.body) : partBytes(n); }
+  catch (e) { return show({ body: nopv(kind, ext, 'No se pudo decodificar el adjunto.') }); }
+  const openTab = (type) => ({ label: 'Abrir en pestaña', icon: IC.ext, fn: () => window.open(mURL(bytes, type), '_blank', 'noopener') });
+  try {
+    switch (kind) {
+      case 'img': {
+        const type = /^image\//.test(n.type) ? n.type : (ext === 'svg' ? 'image/svg+xml' : 'image/' + (ext === 'jpg' ? 'jpeg' : ext));
+        const u = mURL(bytes, type);
+        return show({ body: '<div class="imgwrap" id="iw"><img src="' + u + '" alt=""></div>', extra: type.includes('svg') ? [] : [openTab(type)], after: b => { const w = b.querySelector('#iw'); w.onclick = () => w.classList.toggle('zoom'); }, note: 'Clic en la imagen para alternar entre ajustar a la ventana y tamaño real.' });
+      }
+      case 'pdf': {
+        const u = mURL(bytes, 'application/pdf');
+        return show({ body: '<iframe src="' + u + '" title="PDF"></iframe>', extra: [openTab('application/pdf')] });
+      }
+      case 'audio': return show({ body: '<div class="nopv"><audio controls src="' + mURL(bytes, n.type && /^audio/.test(n.type) ? n.type : 'audio/' + ext) + '"></audio></div>' });
+      case 'video': return show({ body: '<video controls style="flex:1;min-height:0;background:#000;width:100%" src="' + mURL(bytes, n.type && /^video/.test(n.type) ? n.type : 'video/' + ext) + '"></video>' });
+      case 'text': {
+        const t = decodeBytes(bytes.length > 4e6 ? bytes.subarray(0, 4e6) : bytes, n.ctp.charset || 'utf-8');
+        let pretty = t;
+        if (ext === 'json' || /json/.test(n.type)) { try { pretty = JSON.stringify(JSON.parse(t), null, 2); } catch (e) {} }
+        return show({ body: '<pre class="txt">' + esc(pretty) + '</pre>', extra: [openTab('text/plain;charset=utf-8')], note: bytes.length > 4e6 ? 'Se muestran los primeros 4 MB.' : '' });
+      }
+      case 'csv': {
+        const t = decodeBytes(bytes, n.ctp.charset || 'utf-8');
+        const rows = parseCSV(t, ext === 'tsv' ? '\t' : null);
+        return show({ body: '<div class="sheet">' + gridHTML(rows) + '</div>', note: rows.length > 5000 ? 'Se muestran las primeras 5,000 filas.' : '' });
+      }
+      case 'html': {
+        const t = decodeBytes(bytes, n.ctp.charset || 'utf-8');
+        return show({ body: '<iframe sandbox="allow-popups allow-popups-to-escape-sandbox" title="HTML"></iframe>', after: b => { b.querySelector('iframe').srcdoc = frameDoc(t, false); }, note: 'Documento HTML mostrado en modo seguro (sin scripts ni contenido externo).' });
+      }
+      case 'eml': {
+        const root = parseEntity(XUD.decode(bytes));
+        return show({ body: '<div class="nested" id="nest"></div>', after: b => renderMessage(root, b.querySelector('#nest'), { m: null, top: false, bytes }) });
+      }
+      case 'docx': {
+        const z = await readZip(bytes); const html = await docx2html(z);
+        return show({ body: '<iframe sandbox title="Documento"></iframe>', after: b => { b.querySelector('iframe').srcdoc = frameDoc('<div class="docx">' + html + '</div>', false, DOCX_CSS); }, note: 'Vista simplificada del documento Word (texto, títulos, tablas y listas). Para el formato exacto, descárgalo.' });
+      }
+      case 'xlsx': {
+        const z = await readZip(bytes); const wb = await xlsxBook(z);
+        return showSheets(show, wb.sheets.map(s => ({ name: s.name, load: () => xlsxSheet(z, s.path, wb.ss, wb.dates) })), 'Vista de datos de la hoja de cálculo (valores; sin formato ni gráficas). Para el archivo original, descárgalo.');
+      }
+      case 'ods': {
+        const z = await readZip(bytes); const sheets = await odsSheets(z);
+        return showSheets(show, sheets.map(s => ({ name: s.name, load: async () => s.rows })), 'Vista de datos de la hoja de cálculo OpenDocument.');
+      }
+      case 'pptx': {
+        const z = await readZip(bytes); const slides = await pptxSlides(z);
+        return show({ body: '<div class="slides">' + (slides.length ? slides.map((s, k) => '<div class="slide"><h4>Diapositiva ' + (k + 1) + '</h4>' + (s.length ? s.map(p => '<p>' + esc(p) + '</p>').join('') : '<p style="color:#999">(sin texto)</p>') + '</div>').join('') : '<div class="nopv">La presentación no contiene texto.</div>') + '</div>', note: 'Se muestra el texto de cada diapositiva. Para ver el diseño e imágenes, descárgala.' });
+      }
+      case 'odt': case 'odp': {
+        const z = await readZip(bytes); const ps = await odfParagraphs(z);
+        return show({ body: '<iframe sandbox title="Documento"></iframe>', after: b => { b.querySelector('iframe').srcdoc = frameDoc('<div class="docx">' + ps.map(p => p.h ? '<h3>' + esc(p.t) + '</h3>' : '<p>' + (esc(p.t) || '&nbsp;') + '</p>').join('') + '</div>', false, DOCX_CSS); }, note: 'Vista de texto del documento OpenDocument.' });
+      }
+      case 'rtf': {
+        const t = rtf2text(bytes2bin(bytes));
+        return show({ body: '<pre class="txt" style="font-family:inherit;font-size:14px">' + esc(t) + '</pre>', note: 'Vista de texto del documento RTF.' });
+      }
+      case 'zip': {
+        const z = await readZip(bytes);
+        const rows = [['Nombre', 'Tamaño', 'Comprimido']].concat(z.entries.map(e => [e.name + (e.enc ? '  🔒' : ''), e.name.endsWith('/') ? '' : fmtSize(e.usize), e.name.endsWith('/') ? '' : fmtSize(e.csize)]));
+        return show({ body: '<div class="sheet">' + gridHTML(rows, true) + '</div>', note: z.entries.length + ' elementos. Descarga el ZIP para extraer los archivos. 🔒 = protegido con contraseña.' });
+      }
+      default:
+        return show({ body: nopv(kind, ext, 'No hay vista previa disponible para este tipo de archivo (' + esc(ext ? '.' + ext : n.type) + ').') });
+    }
+  } catch (e) {
+    console.error(e);
+    return show({ body: nopv(kind, ext, 'No se pudo generar la vista previa: ' + esc(e.message)) });
+  }
+}
+function nopv(kind, ext, msg) { return '<div class="nopv">' + badgeHTML(kind, ext).replace('class="badge"', 'class="badge"') + '<p>' + msg + '</p><p>Usa el botón <b>Descargar</b> para abrirlo con su programa.</p></div>'; }
+function showSheets(show, sheets, note) {
+  if (!sheets.length) return show({ body: '<div class="nopv">El libro no contiene hojas.</div>' });
+  return show({
+    body: '<div class="tabs">' + sheets.map((s, k) => '<button data-t="' + k + '"' + (k ? '' : ' class="on"') + '>' + esc(s.name) + '</button>').join('') + '</div><div class="sheet" id="sheet"><div class="nopv">Cargando…</div></div>',
+    note,
+    after: b => {
+      const load = async k => {
+        b.querySelectorAll('.tabs button').forEach((x, j) => x.classList.toggle('on', j === k));
+        try { const rows = await sheets[k].load(); b.querySelector('#sheet').innerHTML = rows.length ? gridHTML(rows) : '<div class="nopv">Hoja vacía</div>'; }
+        catch (e) { b.querySelector('#sheet').innerHTML = '<div class="nopv">No se pudo leer la hoja: ' + esc(e.message) + '</div>'; }
+      };
+      b.querySelector('.tabs').onclick = e => { const t = e.target.closest('[data-t]'); if (t) load(+t.dataset.t); };
+      load(0);
+    }
+  });
+}
+function colName(i) { let s = ''; i++; while (i > 0) { const r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1) / 26); } return s; }
+function gridHTML(rows, headerRow) {
+  const MAXR = 5000; const cols = Math.min(200, rows.reduce((a, r) => Math.max(a, r.length), 0));
+  let h = '<table class="grid"><thead><tr>';
+  if (headerRow) { h += rows[0].map(c => '<th>' + esc(c) + '</th>').join('') + '</tr></thead><tbody>'; rows = rows.slice(1); }
+  else { h += '<th></th>'; for (let c = 0; c < cols; c++) h += '<th>' + colName(c) + '</th>'; h += '</tr></thead><tbody>'; }
+  rows.slice(0, MAXR).forEach((r, i) => {
+    h += '<tr>' + (headerRow ? '' : '<td class="rn">' + (i + 1) + '</td>');
+    const n = headerRow ? r.length : cols;
+    for (let c = 0; c < n; c++) { const v = r[c] == null ? '' : String(r[c]); h += '<td title="' + esc(v.length > 60 ? v.slice(0, 500) : '') + '">' + esc(v) + '</td>'; }
+    h += '</tr>';
+  });
+  return h + '</tbody></table>';
+}
+function parseCSV(t, delim) {
+  if (!delim) { const l = t.slice(0, 5000).split(/\r?\n/)[0] || ''; const c = { ',': 0, ';': 0, '\t': 0, '|': 0 }; for (const ch of l) if (ch in c) c[ch]++; delim = Object.entries(c).sort((a, b) => b[1] - a[1])[0][1] ? Object.entries(c).sort((a, b) => b[1] - a[1])[0][0] : ','; }
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (q) { if (c === '"') { if (t[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"' && f === '') q = true;
+    else if (c === delim) { row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && t[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; if (rows.length > 5001) break; }
+    else f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+
+/* ---------- ZIP (lectura con DecompressionStream nativo) ---------- */
+async function readZip(u8) {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let e = -1;
+  for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { e = i; break; }
+  if (e < 0) throw new Error('El archivo no es un ZIP/Office válido');
+  const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true);
+  const entries = [];
+  for (let k = 0; k < n && p + 46 <= u8.length; k++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const flags = dv.getUint16(p + 8, true), method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), usize = dv.getUint32(p + 24, true);
+    const nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lho = dv.getUint32(p + 42, true);
+    const nb = u8.subarray(p + 46, p + 46 + nl);
+    const name = (flags & 0x800) ? new TextDecoder().decode(nb) : decodeBytes(nb, 'utf-8');
+    entries.push({ name, method, csize, usize, lho, enc: !!(flags & 1) });
+    p += 46 + nl + xl + cl;
+  }
+  async function get(ent) {
+    if (ent.enc) throw new Error('Archivo protegido con contraseña');
+    const lh = ent.lho, nl = dv.getUint16(lh + 26, true), xl = dv.getUint16(lh + 28, true);
+    const start = lh + 30 + nl + xl, data = u8.subarray(start, start + ent.csize);
+    if (ent.method === 0) return data;
+    if (ent.method === 8) { const ds = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw')); return new Uint8Array(await new Response(ds).arrayBuffer()); }
+    throw new Error('Método de compresión no soportado (' + ent.method + ')');
+  }
+  const byName = {}; for (const en of entries) byName[en.name] = en;
+  return { entries, get, async text(name) { const en = byName[name] || entries.find(x => x.name.toLowerCase() === name.toLowerCase()); return en ? decodeBytes(await get(en), 'utf-8') : null; } };
+}
+const parseXML = s => new DOMParser().parseFromString(s || '<x/>', 'application/xml');
+const kids = (el, ln) => el ? [...el.children].filter(c => c.localName === ln) : [];
+const kid = (el, ln) => kids(el, ln)[0] || null;
+const attrL = (el, ln) => { if (!el) return null; for (const a of el.attributes) if (a.localName === ln) return a.value; return null; };
+
+/* ---------- Word (.docx) ---------- */
+const DOCX_CSS = '.docx{max-width:860px;margin:0 auto;font-family:Calibri,"Segoe UI",Arial,sans-serif;font-size:14.5px;line-height:1.5}.docx p{margin:0 0 8px}.docx table{border-collapse:collapse;margin:10px 0}.docx td{border:1px solid #bbb;padding:4px 8px;vertical-align:top}.docx td p{margin:0}.docx .li{padding-left:18px}.docx .img{color:#999;font-style:italic}';
+async function docx2html(z) {
+  const xml = await z.text('word/document.xml'); if (!xml) throw new Error('No se encontró el contenido del documento');
+  const doc = parseXML(xml); const body = doc.getElementsByTagNameNS('*', 'body')[0];
+  const isOff = el => { const v = attrL(el, 'val'); return v === '0' || v === 'false' || v === 'none'; };
+  function runs(el) {
+    let h = '';
+    for (const c of el.children) {
+      const ln = c.localName;
+      if (ln === 'r') {
+        let t = '';
+        for (const x of c.children) {
+          if (x.localName === 't') t += esc(x.textContent);
+          else if (x.localName === 'tab') t += '&emsp;';
+          else if (x.localName === 'br' || x.localName === 'cr') t += '<br>';
+          else if (x.localName === 'drawing' || x.localName === 'pict') t += '<span class="img">[imagen]</span>';
+        }
+        const pr = kid(c, 'rPr');
+        if (pr && t) {
+          const b = kid(pr, 'b'), i = kid(pr, 'i'), u = kid(pr, 'u'), s = kid(pr, 'strike');
+          if (b && !isOff(b)) t = '<b>' + t + '</b>';
+          if (i && !isOff(i)) t = '<i>' + t + '</i>';
+          if (u && !isOff(u)) t = '<u>' + t + '</u>';
+          if (s && !isOff(s)) t = '<s>' + t + '</s>';
+          const col = attrL(kid(pr, 'color'), 'val'); if (col && /^[0-9a-f]{6}$/i.test(col) && col !== '000000') t = '<span style="color:#' + col + '">' + t + '</span>';
+        }
+        h += t;
+      } else if (['hyperlink', 'ins', 'smartTag', 'fldSimple', 'customXml'].includes(ln)) h += runs(c);
+      else if (ln === 'sdt') { const sc = kid(c, 'sdtContent'); if (sc) h += runs(sc); }
+    }
+    return h;
+  }
+  function para(p) {
+    const pr = kid(p, 'pPr'); const st = attrL(kid(pr, 'pStyle'), 'val') || '';
+    const hm = /(heading|t[ií]tulo|titulo)\s*(\d)/i.exec(st);
+    let inner = runs(p) || '&nbsp;';
+    const jc = attrL(kid(pr, 'jc'), 'val'); const align = jc === 'center' ? ' style="text-align:center"' : jc === 'right' || jc === 'end' ? ' style="text-align:right"' : jc === 'both' ? ' style="text-align:justify"' : '';
+    if (/^(title|t[ií]tulo)$/i.test(st)) return '<h1' + align + '>' + inner + '</h1>';
+    if (hm) { const lv = Math.min(6, +hm[2]); return '<h' + lv + align + '>' + inner + '</h' + lv + '>'; }
+    if (kid(pr, 'numPr')) return '<p class="li"' + align + '>•&nbsp; ' + inner + '</p>';
+    return '<p' + align + '>' + inner + '</p>';
+  }
+  function blocks(el) {
+    let h = '';
+    for (const c of el.children) {
+      if (c.localName === 'p') h += para(c);
+      else if (c.localName === 'tbl') h += '<table>' + kids(c, 'tr').map(tr => '<tr>' + kids(tr, 'tc').map(tc => { const sp = attrL(kid(kid(tc, 'tcPr'), 'gridSpan'), 'val'); return '<td' + (sp ? ' colspan="' + (+sp) + '"' : '') + '>' + blocks(tc) + '</td>'; }).join('') + '</tr>').join('') + '</table>';
+      else if (c.localName === 'sdt') { const sc = kid(c, 'sdtContent'); if (sc) h += blocks(sc); }
+    }
+    return h;
+  }
+  return body ? blocks(body) : '';
+}
+
+/* ---------- Excel (.xlsx) ---------- */
+async function xlsxBook(z) {
+  const wb = parseXML(await z.text('xl/workbook.xml'));
+  const rels = parseXML(await z.text('xl/_rels/workbook.xml.rels'));
+  const rel = {}; for (const r of rels.getElementsByTagNameNS('*', 'Relationship')) rel[r.getAttribute('Id')] = r.getAttribute('Target');
+  const ss = []; const ssx = await z.text('xl/sharedStrings.xml');
+  if (ssx) for (const si of parseXML(ssx).getElementsByTagNameNS('*', 'si')) { let t = ''; for (const x of si.getElementsByTagNameNS('*', 't')) if (x.parentNode.localName !== 'rPh') t += x.textContent; ss.push(t); }
+  // estilos con formato de fecha
+  const dates = new Set();
+  try {
+    const st = parseXML(await z.text('xl/styles.xml'));
+    const custom = {}; for (const f of st.getElementsByTagNameNS('*', 'numFmt')) custom[f.getAttribute('numFmtId')] = f.getAttribute('formatCode') || '';
+    const xfs = st.getElementsByTagNameNS('*', 'cellXfs')[0];
+    if (xfs) kids(xfs, 'xf').forEach((xf, i) => {
+      const id = +xf.getAttribute('numFmtId');
+      if ((id >= 14 && id <= 22) || (id >= 45 && id <= 47) || (custom[id] && /[dmy]/i.test(custom[id].replace(/\[[^\]]*\]|"[^"]*"/g, '')) && !/^[#0.,%]+$/.test(custom[id]))) dates.add(i);
+    });
+  } catch (e) {}
+  const sheets = [];
+  for (const s of wb.getElementsByTagNameNS('*', 'sheet')) {
+    const rid = attrL(s, 'id'); let t = rel[rid] || '';
+    const path = t.startsWith('/') ? t.slice(1) : 'xl/' + t.replace(/^\.\//, '');
+    sheets.push({ name: s.getAttribute('name') || 'Hoja', path });
+  }
+  return { sheets, ss, dates };
+}
+function serialDate(v) {
+  const n = parseFloat(v); if (isNaN(n)) return v;
+  const ms = Math.round((n - 25569) * 86400000); const d = new Date(ms); const p = x => String(x).padStart(2, '0');
+  const date = p(d.getUTCDate()) + '/' + p(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear();
+  return n % 1 ? date + ' ' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes()) : date;
+}
+async function xlsxSheet(z, path, ss, dates) {
+  const d = parseXML(await z.text(path)); const rows = [];
+  const ref2col = r => { let c = 0; for (const ch of r) { const k = ch.charCodeAt(0); if (k >= 65 && k <= 90) c = c * 26 + (k - 64); else break; } return c - 1; };
+  let rIdx = -1;
+  for (const r of d.getElementsByTagNameNS('*', 'row')) {
+    const rn = +r.getAttribute('r'); rIdx = rn ? rn - 1 : rIdx + 1; if (rIdx > 5000) break;
+    const row = rows[rIdx] = rows[rIdx] || [];
+    let cIdx = -1;
+    for (const c of kids(r, 'c')) {
+      const ref = c.getAttribute('r'); cIdx = ref ? ref2col(ref) : cIdx + 1; if (cIdx > 200) continue;
+      const t = c.getAttribute('t'), v = kid(c, 'v'); let val = v ? v.textContent : '';
+      if (t === 's') val = ss[+val] ?? '';
+      else if (t === 'inlineStr') { const is = kid(c, 'is'); val = is ? [...is.getElementsByTagNameNS('*', 't')].map(x => x.textContent).join('') : ''; }
+      else if (t === 'b') val = val === '1' ? 'VERDADERO' : 'FALSO';
+      else if (t !== 'str' && t !== 'e' && val !== '' && dates.has(+c.getAttribute('s'))) val = serialDate(val);
+      row[cIdx] = val;
+    }
+  }
+  for (let i = 0; i < rows.length; i++) if (!rows[i]) rows[i] = [];
+  return rows;
+}
+/* ---------- PowerPoint (.pptx) ---------- */
+async function pptxSlides(z) {
+  const names = z.entries.map(e => e.name).filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n)).sort((a, b) => +a.match(/(\d+)\.xml$/)[1] - +b.match(/(\d+)\.xml$/)[1]);
+  const out = [];
+  for (const n of names) { const d = parseXML(await z.text(n)); out.push([...d.getElementsByTagNameNS('*', 'p')].filter(p => p.namespaceURI && /drawingml/.test(p.namespaceURI)).map(p => [...p.getElementsByTagNameNS('*', 't')].map(t => t.textContent).join('')).filter(s => s.trim())); }
+  return out;
+}
+/* ---------- OpenDocument ---------- */
+async function odfParagraphs(z) {
+  const d = parseXML(await z.text('content.xml')); const out = [];
+  const walk = el => { for (const c of el.children) { if (c.localName === 'p' || c.localName === 'h') out.push({ h: c.localName === 'h', t: c.textContent }); else walk(c); } };
+  const body = d.getElementsByTagNameNS('*', 'body')[0]; if (body) walk(body);
+  return out;
+}
+async function odsSheets(z) {
+  const d = parseXML(await z.text('content.xml')); const out = [];
+  for (const t of d.getElementsByTagNameNS('*', 'table')) {
+    if (t.namespaceURI && !/table/.test(t.namespaceURI)) continue;
+    const rows = [];
+    for (const r of t.getElementsByTagNameNS('*', 'table-row')) {
+      const rep = Math.min(+(attrL(r, 'number-rows-repeated') || 1), 50);
+      const row = [];
+      for (const c of r.children) {
+        if (c.localName !== 'table-cell' && c.localName !== 'covered-table-cell') continue;
+        const cr = Math.min(+(attrL(c, 'number-columns-repeated') || 1), 200);
+        const v = [...c.children].filter(x => x.localName === 'p').map(x => x.textContent).join('\n');
+        for (let k = 0; k < cr; k++) row.push(v);
+      }
+      while (row.length && row[row.length - 1] === '') row.pop();
+      for (let k = 0; k < rep; k++) rows.push(row);
+      if (rows.length > 5000) break;
+    }
+    while (rows.length && !rows[rows.length - 1].length) rows.pop();
+    out.push({ name: attrL(t, 'name') || 'Hoja', rows });
+  }
+  return out;
+}
+/* ---------- RTF (texto) ---------- */
+function rtf2text(s) {
+  let out = '', depth = 0; const skipAt = []; let i = 0;
+  const bytes = [];
+  const flush = () => { if (bytes.length) { out += decodeBytes(new Uint8Array(bytes), 'windows-1252'); bytes.length = 0; } };
+  while (i < s.length) {
+    const c = s[i];
+    if (c === '{') { depth++; i++; if (s.startsWith('\\*', i)) skipAt.push(depth); continue; }
+    if (c === '}') { if (skipAt[skipAt.length - 1] === depth) skipAt.pop(); depth--; i++; continue; }
+    const skipping = skipAt.length > 0;
+    if (c === '\\') {
+      const m = /^\\([a-z]+)(-?\d+)? ?|^\\'([0-9a-f]{2})|^\\(.)/i.exec(s.slice(i, i + 40));
+      if (!m) { i++; continue; }
+      i += m[0].length;
+      if (skipping) continue;
+      if (m[3]) { bytes.push(parseInt(m[3], 16)); continue; }
+      flush();
+      if (m[4]) { if (m[4] === '\n' || m[4] === '\r') out += '\n'; else if ('\\{}'.includes(m[4])) out += m[4]; continue; }
+      const w = m[1];
+      if (['fonttbl', 'colortbl', 'stylesheet', 'info', 'pict', 'header', 'footer', 'listtable', 'listoverridetable', 'rsidtbl', 'generator', 'themedata', 'colorschememapping', 'datastore', 'latentstyles'].includes(w)) skipAt.push(depth);
+      else if (w === 'par' || w === 'line' || w === 'row') out += '\n';
+      else if (w === 'tab' || w === 'cell') out += '\t';
+      else if (w === 'u') { out += String.fromCharCode((+m[2] + 65536) % 65536); if (s[i] === '?') i++; }
+      continue;
+    }
+    if (skipping || c === '\r' || c === '\n') { i++; continue; }
+    bytes.push(s.charCodeAt(i) & 255); i++;
+  }
+  flush();
+  return out.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+
+/* =====================================================================
+   AYUDA
+   ===================================================================== */
+function showHelp() {
+  const r = (a, b) => '<tr><td>' + a + '</td><td>' + b + '</td></tr>';
+  modalOpen({
+    title: 'Ayuda', sub: CONFIG.titulo + ' · versión ' + CONFIG.version,
+    body: '<div class="help"><h2>Cómo usar el lector</h2>'
+      + '<p><b>1.</b> Pulsa <b>Abrir archivos</b> o arrastra tu archivo .mbox o .eml a la ventana. Puedes abrir varios a la vez.<br><b>2.</b> Haz clic en un mensaje de la lista para leerlo a la derecha.<br><b>3.</b> Haz clic en un adjunto para verlo; usa el ícono de descarga para guardarlo.</p>'
+      + '<h3>Buscar</h3><p>Escribe cualquier palabra en el buscador: se busca en remitente, destinatarios, asunto, texto del mensaje y nombres de adjuntos. No importan mayúsculas ni acentos. Para buscar por persona, fecha o adjuntos, usa el botón de filtros a la derecha del buscador (búsqueda avanzada).</p>'
+      + '<h3>Atajos útiles</h3><table>'
+      + r('<code>de:nombre</code>', 'Mensajes enviados por esa persona')
+      + r('<code>para:nombre</code>', 'Mensajes enviados a esa persona')
+      + r('<code>asunto:palabra</code>', 'Palabra en el asunto')
+      + r('<code>tiene:adjunto</code>', 'Solo mensajes con archivos adjuntos (también <code>tiene:pdf</code>)')
+      + r('<code>despues:01/11/2026</code>', 'A partir de esa fecha (también <code>antes:</code>)')
+      + r('<code>"frase exacta"</code>', 'Usa comillas para buscar una frase completa')
+      + r('<code>-palabra</code>', 'Excluye mensajes que contienen esa palabra')
+      + '</table><h3>Teclado</h3><table>'
+      + r('<kbd>↑</kbd> <kbd>↓</kbd>', 'Mensaje anterior / siguiente') + r('<kbd>/</kbd>', 'Ir al buscador') + r('<kbd>Esc</kbd>', 'Cerrar la vista de un adjunto')
+      + '</table><h3>Privacidad</h3><p>Tus archivos se abren directamente desde tu equipo y no se suben a internet. Las imágenes externas de los correos quedan bloqueadas hasta que pulses <b>Mostrar imágenes</b>.</p>'
+      + '<h3>Adjuntos que se pueden ver</h3><p>PDF, imágenes, Word, Excel, PowerPoint (solo texto), texto, CSV, audio, video, ZIP (lista de contenido) y correos adjuntos. Los demás se pueden descargar y abrir con su programa.</p></div>'
+  });
+}
+
+/* =====================================================================
+   EVENTOS GENERALES
+   ===================================================================== */
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.add('hidden'), 3800); }
+function closeAll() {
+  if (!confirm('¿Cerrar todos los archivos abiertos?')) return;
+  APP.files = []; APP.msgs = []; APP.view = []; APP.sel = -1; APP.labels = new Map(); APP.totalBytes = 0; APP.quick = { type: 'all' }; APP.remoteOk.clear();
+  revokeAll(); $('#reader').innerHTML = '<div class="empty"><p>Selecciona un mensaje para leerlo</p></div>';
+  $('#welcome').classList.remove('hidden'); rebuildSide(); applyFilters(false);
+}
+$('#bOpen').onclick = () => $('#file').click();
+$('#bOpen2').onclick = () => $('#file').click();
+$('#file').onchange = e => { const f = e.target.files; loadFiles(f); e.target.value = ''; };
+$('#pCancel').onclick = () => { APP.cancel = true; };
+$('#bHelp').onclick = showHelp;
+$('#sort').onchange = e => { APP.sort = e.target.value; applyFilters(true); };
+
+let qT;
+$('#q').addEventListener('input', e => {
+  $('#bClear').classList.toggle('hidden', !e.target.value);
+  clearTimeout(qT); qT = setTimeout(() => { APP.query = e.target.value.trim(); applyFilters(false); }, APP.msgs.length > 20000 ? 350 : 150);
+});
+$('#q').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { clearTimeout(qT); APP.query = e.target.value.trim(); applyFilters(false); $('#adv').classList.add('hidden'); }
+  if (e.key === 'Escape') { e.target.blur(); }
+});
+$('#bClear').onclick = () => { $('#q').value = ''; $('#bClear').classList.add('hidden'); APP.query = ''; applyFilters(false); };
+
+/* búsqueda avanzada */
+$('#bAdv').onclick = e => { e.stopPropagation(); fillAdv(); $('#adv').classList.toggle('hidden'); if (!$('#adv').classList.contains('hidden')) $('#aFrom').focus(); };
+document.addEventListener('mousedown', e => { if (!$('#adv').classList.contains('hidden') && !e.target.closest('#searchBox')) $('#adv').classList.add('hidden'); });
+function qv(v) { v = v.trim(); return /\s/.test(v) ? '"' + v.replace(/"/g, '') + '"' : v; }
+function fillAdv() {
+  const g = parseQuery($('#q').value); const get = f => { const t = g.find(x => x.length === 1 && x[0].field === f && !x[0].neg); return t ? t[0].val : ''; };
+  $('#aFrom').value = get('from'); $('#aTo').value = get('to'); $('#aSubj').value = get('subject'); $('#aFile').value = get('filename');
+}
+$('#aGo').onclick = () => {
+  const p = [];
+  const v = id => $(id).value.trim();
+  if (v('#aFrom')) p.push('de:' + qv(v('#aFrom')));
+  if (v('#aTo')) p.push('para:' + qv(v('#aTo')));
+  if (v('#aSubj')) p.push('asunto:' + qv(v('#aSubj')));
+  if (v('#aHas')) p.push(v('#aHas'));
+  if (v('#aNot')) v('#aNot').split(/\s+/).forEach(w => p.push('-' + w));
+  if (v('#aFile')) p.push('adjunto:' + qv(v('#aFile')));
+  if ($('#aAtt').checked) p.push('tiene:adjunto');
+  if (v('#aSize')) p.push(($('#aSizeOp').value === 'larger' ? 'mayor:' : 'menor:') + v('#aSize') + $('#aSizeU').value);
+  if (v('#aAfter')) p.push('despues:' + v('#aAfter').replace(/-/g, '/'));
+  if (v('#aBefore')) { const d = new Date(v('#aBefore') + 'T00:00:00'); d.setDate(d.getDate() + 1); p.push('antes:' + d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate()); }
+  if ($('#aLabel').value) p.push('etiqueta:' + qv($('#aLabel').value));
+  if ($('#aMbox').value) p.push('archivo:' + qv($('#aMbox').value));
+  const q = p.join(' ');
+  $('#q').value = q; $('#bClear').classList.toggle('hidden', !q);
+  APP.query = q; applyFilters(false); $('#adv').classList.add('hidden');
+};
+$('#aReset').onclick = () => { $('#adv').querySelectorAll('input').forEach(i => { if (i.type === 'checkbox') i.checked = false; else i.value = ''; }); $('#adv').querySelectorAll('select').forEach(s => s.selectedIndex = 0); };
+$('#adv').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#aGo').click(); } if (e.key === 'Escape') $('#adv').classList.add('hidden'); });
+
+/* teclado */
+document.addEventListener('keydown', e => {
+  if (!$('#modal').classList.contains('hidden')) {
+    if (e.key === 'Escape') { modalClose(); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft' && MODAL.cur && MODAL.cur.nav) MODAL.cur.nav.go(MODAL.cur.nav.i - 1);
+    else if (e.key === 'ArrowRight' && MODAL.cur && MODAL.cur.nav) MODAL.cur.nav.go(MODAL.cur.nav.i + 1);
+    return;
+  }
+  const inInput = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if (inInput) return;
+  if (e.key === '/' || (e.key === 'f' && (e.ctrlKey || e.metaKey) && APP.msgs.length)) { e.preventDefault(); $('#q').focus(); $('#q').select(); }
+  else if (e.key === '?') showHelp();
+  else if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); select(Math.min(APP.view.length - 1, APP.sel + 1), true); }
+  else if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); select(Math.max(0, APP.sel - 1), true); }
+});
+
+/* arrastrar y soltar */
+let dragN = 0;
+window.addEventListener('dragenter', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { dragN++; $('#drop').classList.remove('hidden'); } });
+window.addEventListener('dragleave', () => { dragN = Math.max(0, dragN - 1); if (!dragN) $('#drop').classList.add('hidden'); });
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => { e.preventDefault(); dragN = 0; $('#drop').classList.add('hidden'); if (e.dataTransfer.files.length) loadFiles(e.dataTransfer.files); });
+
+/* paneles redimensionables y distribución */
+const main = $('#main');
+function applyLayout() {
+  const L = lsGet('layout', { mode: 'cols', sw: 220, lw: 430, lh: 42, side: true });
+  main.classList.toggle('cols', L.mode === 'cols'); main.classList.toggle('rows', L.mode === 'rows'); main.classList.toggle('noside', !L.side);
+  main.style.setProperty('--sw', L.sw + 'px'); main.style.setProperty('--lw', L.lw + 'px'); main.style.setProperty('--lh', L.lh + '%');
+  $('#bLayout').innerHTML = L.mode === 'cols' ? '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 11h18"/></svg>' : '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M10 4v16"/></svg>';
+  $('#bLayout').title = L.mode === 'cols' ? 'Cambiar a lector debajo de la lista' : 'Cambiar a lector a la derecha de la lista';
+  requestAnimationFrame(renderList);
+  return L;
+}
+$('#bLayout').onclick = () => { const L = lsGet('layout', { mode: 'cols', sw: 220, lw: 430, lh: 42, side: true }); L.mode = L.mode === 'cols' ? 'rows' : 'cols'; lsSet('layout', L); applyLayout(); };
+$('#bSide').onclick = () => { const L = lsGet('layout', { mode: 'cols', sw: 220, lw: 430, lh: 42, side: true }); L.side = !L.side; lsSet('layout', L); applyLayout(); };
+function dragSplit(el, which) {
+  el.addEventListener('mousedown', e => {
+    e.preventDefault(); el.classList.add('drag');
+    const L = lsGet('layout', { mode: 'cols', sw: 220, lw: 430, lh: 42, side: true });
+    const r = main.getBoundingClientRect(); const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:99;cursor:' + (which === 'sp2' && L.mode === 'rows' ? 'row-resize' : 'col-resize');
+    document.body.appendChild(ov);
+    const mv = ev => {
+      if (which === 'sp1') L.sw = Math.max(150, Math.min(420, ev.clientX - r.left));
+      else if (L.mode === 'cols') L.lw = Math.max(260, Math.min(r.width - (L.side ? L.sw : 0) - 320, ev.clientX - r.left - (L.side ? L.sw : 0) - 5));
+      else L.lh = Math.max(15, Math.min(80, 100 * (ev.clientY - r.top) / r.height));
+      main.style.setProperty('--sw', L.sw + 'px'); main.style.setProperty('--lw', L.lw + 'px'); main.style.setProperty('--lh', L.lh + '%');
+      renderList();
+    };
+    const up = () => { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); ov.remove(); el.classList.remove('drag'); lsSet('layout', L); };
+    document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+  });
+}
+dragSplit($('#sp1'), 'sp1'); dragSplit($('#sp2'), 'sp2');
+
+/* inicio */
+document.title = CONFIG.titulo; $('#appTitle').textContent = CONFIG.titulo; $('#appOrg').textContent = CONFIG.organizacion;
+applyLayout(); rebuildSide(); updateCounts();
+$('#stVer').textContent = 'v' + CONFIG.version;
+
+/* =====================================================================
+   PWA: trabajo sin conexión, instalación y apertura con doble clic
+   ===================================================================== */
+if ('serviceWorker' in navigator && window.isSecureContext && location.protocol !== 'file:') {
+  navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW', e));
+}
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#bInstall').classList.remove('hidden'); });
+$('#bInstall').onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('#bInstall').classList.add('hidden'); };
+window.addEventListener('appinstalled', () => { $('#bInstall').classList.add('hidden'); toast('Lector MBOX quedó instalado en este equipo'); });
+if ('launchQueue' in window) {
+  window.launchQueue.setConsumer(async params => {
+    if (!params.files || !params.files.length) return;
+    const files = await Promise.all(params.files.map(h => h.getFile()));
+    loadFiles(files);
+  });
+}
+</script>
+</body>
+</html>
