@@ -5,10 +5,10 @@ Se instala como aplicación (PWA), funciona sin conexión y **los archivos se pr
 
 ## Publicar en GitHub Pages
 
-1. Crea un repositorio, por ejemplo `carloschee/lector-mbox`.
+1. Crea un repositorio, por ejemplo `cobachbc/mboxv`.
 2. Sube el contenido de esta carpeta a la raíz del repositorio (`index.html`, `manifest.webmanifest`, `sw.js`, `icons/`, `.nojekyll`).
 3. En el repositorio: **Settings → Pages → Source: Deploy from a branch → `main` / `(root)`**.
-4. Quedará disponible en `https://carloschee.github.io/lector-mbox/`.
+4. Quedará disponible en `https://cobachbc.github.io/mboxv/`.
 
 Las rutas son relativas, así que funciona con cualquier nombre de repositorio.
 
@@ -24,7 +24,7 @@ Para usuarios que usan Chrome con su cuenta institucional (ChromeOS, o Windows/M
 
 1. Consola de administración → **Dispositivos → Chrome → Apps y extensiones → Usuarios y navegadores**.
 2. Selecciona la unidad organizativa.
-3. Botón **+** → **Agregar por URL** → `https://carloschee.github.io/lector-mbox/`.
+3. Botón **+** → **Agregar por URL** → `https://cobachbc.github.io/mboxv/`.
 4. Política de instalación: **Forzar instalación** (en ChromeOS puedes además fijarla en la barra).
 
 En Windows/Mac la política solo aplica si el perfil de Chrome está administrado por el dominio (inicio de sesión con la cuenta institucional y administración de Chrome para usuarios activada, o Chrome Browser Cloud Management).
